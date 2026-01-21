@@ -1,0 +1,94 @@
+"use client"
+
+import Link from "next/link"
+import { BookOpen, Brain, BookText, Layers, Target, Zap } from "lucide-react"
+import type { TabType } from "@/app/page"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+interface HeaderProps {
+  activeTab: TabType
+  onTabChange: (tab: TabType) => void
+}
+
+const tabs = [
+  { id: "lessons" as const, label: "Lessons", icon: BookOpen },
+  { id: "train" as const, label: "Train", icon: Brain },
+  { id: "vocab" as const, label: "Vocab", icon: BookText },
+  { id: "cards" as const, label: "Cards", icon: Layers },
+  { id: "core" as const, label: "Core", icon: Target },
+  { id: "cheat" as const, label: "Cheat", icon: Zap },
+]
+
+export function Header({ activeTab, onTabChange }: HeaderProps) {
+  return (
+    <header className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-lg">D</span>
+            </div>
+            <div>
+              <h1 className="font-bold text-xl text-foreground">DeutschMeister</h1>
+              <p className="text-xs text-muted-foreground">Master German</p>
+            </div>
+          </div>
+
+          <div className="hidden md:flex items-center gap-3">
+            {/* Navigation */}
+            <nav className="flex items-center gap-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => onTabChange(tab.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                      activeTab === tab.id
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </nav>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/auth/signin">Sign in</Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
+        <nav className="md:hidden flex items-center gap-2 pb-3 overflow-x-auto">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
+                  activeTab === tab.id
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            )
+          })}
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link href="/auth/signin">Sign in</Link>
+          </Button>
+        </nav>
+      </div>
+    </header>
+  )
+}
