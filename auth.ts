@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "database" },
+  session: { strategy: "jwt" },
   providers: [
     Cognito({
       clientId: process.env.COGNITO_CLIENT_ID ?? "",
