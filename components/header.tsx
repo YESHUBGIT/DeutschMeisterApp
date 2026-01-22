@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { signOut, useSession } from "next-auth/react"
 import { BookOpen, Brain, BookText, Layers, Target, Zap } from "lucide-react"
 import type { TabType } from "@/app/page"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,9 @@ const tabs = [
 ]
 
 export function Header({ activeTab, onTabChange }: HeaderProps) {
+  const { status, data: session } = useSession()
+  const isAuthed = status === "authenticated"
+
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
       <div className="container mx-auto px-4">
@@ -58,9 +62,20 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 )
               })}
             </nav>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/auth/signin">Sign in</Link>
-            </Button>
+            {isAuthed ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {session?.user?.name ?? session?.user?.email}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/auth/signin" })}>
+                  Sign out
+                </Button>
+              </div>
+            ) : (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/auth/signin">Sign in</Link>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -84,9 +99,15 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )
           })}
-          <Button asChild variant="outline" size="sm" className="shrink-0">
-            <Link href="/auth/signin">Sign in</Link>
-          </Button>
+          {isAuthed ? (
+            <Button variant="outline" size="sm" className="shrink-0" onClick={() => signOut({ callbackUrl: "/auth/signin" })}>
+              Sign out
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm" className="shrink-0">
+              <Link href="/auth/signin">Sign in</Link>
+            </Button>
+          )}
         </nav>
       </div>
     </header>

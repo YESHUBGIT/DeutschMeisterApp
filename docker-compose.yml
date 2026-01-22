@@ -13,9 +13,7 @@ services:
       - "5432:5432"
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: yeshdock/deutschmeister:latest
     container_name: german-app
     restart: unless-stopped
     depends_on:
@@ -48,6 +46,8 @@ services:
   certbot:
     image: certbot/certbot:latest
     container_name: german-app-certbot
+    ports:
+      - "80:80"
     volumes:
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt

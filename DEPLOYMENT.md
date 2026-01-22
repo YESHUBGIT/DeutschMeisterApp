@@ -47,8 +47,8 @@ docker compose up -d --build
 2) Issue the first certificate:
 
 ```bash
-docker compose run --rm certbot certonly \
-  --webroot -w /var/www/certbot \
+docker compose stop nginx
+docker compose run --rm --service-ports --entrypoint certbot certbot certonly --standalone \
   -d thecloudtitan.de -d www.thecloudtitan.de \
   --email you@thecloudtitan.de --agree-tos --no-eff-email
 ```
@@ -60,6 +60,14 @@ docker compose exec nginx nginx -s reload
 ```
 
 Certbot will auto-renew every 12 hours via the `certbot` service.
+
+Manual renewal (if needed):
+
+```bash
+docker compose stop nginx
+docker compose run --rm --service-ports --entrypoint certbot certbot renew
+docker compose up -d
+```
 
 ## Migrations
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { signIn } from "next-auth/react"
-import { BookOpen, Chrome, Globe2, Sparkles } from "lucide-react"
+import { BookOpen, Mail, Globe2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -23,7 +23,7 @@ export default function SignInPage() {
           </h1>
           <p className="text-lg text-muted-foreground">
             Speichere deinen Fortschritt, synchronisiere Vokabeln und lerne von jedem Gerät.
-            Melde dich mit Google an und starte direkt.
+            Erstelle ein Konto mit deiner E-Mail und starte direkt.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/70 p-4 shadow-sm">
@@ -56,8 +56,8 @@ export default function SignInPage() {
               size="lg"
               onClick={() => signIn("cognito", { callbackUrl: "/" })}
             >
-              <Chrome className="h-5 w-5" />
-              Mit Google fortfahren
+              <Mail className="h-5 w-5" />
+              Mit E-Mail fortfahren
             </Button>
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
               Wir verwenden AWS Cognito für sichere Anmeldung. Deine Daten bleiben privat.
