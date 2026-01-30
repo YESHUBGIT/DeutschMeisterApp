@@ -10,3 +10,4 @@ node_modules
 .pnpm-debug.log
 certbot
 postgres_data
+GitHub_login_token.txt
