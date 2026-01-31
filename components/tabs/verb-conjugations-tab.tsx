@@ -639,6 +639,7 @@ const verbSections: VerbSection[] = [
 export function VerbConjugationsTab() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeSection, setActiveSection] = useState(verbSections[0]?.id ?? "modal")
+  const [selectedVerbIdBySection, setSelectedVerbIdBySection] = useState<Record<string, string>>({})
 
   const filtered = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -662,6 +663,11 @@ export function VerbConjugationsTab() {
   }, [searchQuery])
 
   const sectionsToRender = filtered ? [] : verbSections
+
+  const getSelectedVerb = (section: VerbSection) => {
+    const selectedId = selectedVerbIdBySection[section.id] ?? section.verbs[0]?.id
+    return section.verbs.find(verb => verb.id === selectedId) ?? section.verbs[0]
+  }
 
   return (
     <div className="space-y-6">
@@ -693,8 +699,32 @@ export function VerbConjugationsTab() {
               {filtered.length} result{filtered.length === 1 ? "" : "s"} found
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Verb List</CardTitle>
+              <CardDescription>Click a verb to view its conjugation tables.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map(({ section, verb }) => (
+                <button
+                  key={`${section}-${verb.id}`}
+                  type="button"
+                  className="rounded-lg border border-border px-3 py-2 text-left text-sm font-medium hover:bg-muted"
+                  onClick={() => setSelectedVerbIdBySection(prev => ({
+                    ...prev,
+                    [section]: verb.id,
+                  }))}
+                >
+                  <span className="block text-foreground">{verb.title}</span>
+                  <span className="text-xs text-muted-foreground">{verb.meaning}</span>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
           {filtered.map(({ section, verb }) => (
-            <VerbCard key={`${section}-${verb.id}`} verb={verb} sectionLabel={section} />
+            selectedVerbIdBySection[section] === verb.id ? (
+              <VerbCard key={`${section}-${verb.id}`} verb={verb} sectionLabel={section} />
+            ) : null
           ))}
         </div>
       ) : (
@@ -714,11 +744,31 @@ export function VerbConjugationsTab() {
                   {section.description}
                 </CardContent>
               </Card>
-              <div className="space-y-4">
-                {section.verbs.map((verb) => (
-                  <VerbCard key={verb.id} verb={verb} sectionLabel={section.label} />
-                ))}
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Verb List</CardTitle>
+                  <CardDescription>Select a verb to show its conjugation tables.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {section.verbs.map((verb) => (
+                    <button
+                      key={verb.id}
+                      type="button"
+                      className="rounded-lg border border-border px-3 py-2 text-left text-sm font-medium hover:bg-muted"
+                      onClick={() => setSelectedVerbIdBySection(prev => ({
+                        ...prev,
+                        [section.id]: verb.id,
+                      }))}
+                    >
+                      <span className="block text-foreground">{verb.title}</span>
+                      <span className="text-xs text-muted-foreground">{verb.meaning}</span>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+              {getSelectedVerb(section) && (
+                <VerbCard verb={getSelectedVerb(section)} sectionLabel={section.label} />
+              )}
             </TabsContent>
           ))}
         </Tabs>
