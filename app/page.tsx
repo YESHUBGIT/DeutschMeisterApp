@@ -8,8 +8,9 @@ import { VocabTab } from "@/components/tabs/vocab-tab"
 import { CardsTab } from "@/components/tabs/cards-tab"
 import { CoreTab } from "@/components/tabs/core-tab"
 import { CheatTab } from "@/components/tabs/cheat-tab"
+import { VerbConjugationsTab } from "@/components/tabs/verb-conjugations-tab"
 
-export type TabType = "lessons" | "train" | "vocab" | "cards" | "core" | "cheat"
+export type TabType = "lessons" | "train" | "vocab" | "conjugations" | "cards" | "core" | "cheat"
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>("lessons")
@@ -22,6 +23,8 @@ export default function Home() {
         return <TrainTab />
       case "vocab":
         return <VocabTab />
+      case "conjugations":
+        return <VerbConjugationsTab />
       case "cards":
         return <CardsTab />
       case "core":

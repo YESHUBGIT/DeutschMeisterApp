@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
-import { BookOpen, Brain, BookText, Layers, Target, Zap } from "lucide-react"
+import { BookOpen, Brain, BookText, Layers, Target, Zap, Table } from "lucide-react"
 import type { TabType } from "@/app/page"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,7 @@ const tabs = [
   { id: "lessons" as const, label: "Lessons", icon: BookOpen },
   { id: "train" as const, label: "Train", icon: Brain },
   { id: "vocab" as const, label: "Vocab", icon: BookText },
+  { id: "conjugations" as const, label: "Conjugations", icon: Table },
   { id: "cards" as const, label: "Cards", icon: Layers },
   { id: "core" as const, label: "Core", icon: Target },
   { id: "cheat" as const, label: "Cheat", icon: Zap },

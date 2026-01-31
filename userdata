@@ -26,6 +26,7 @@ mkdir -p /opt/deutschmeister
 cd /opt/deutschmeister
 
 git clone https://github.com/YESHUBGIT/DeutschMeisterApp.git .
+chown -R ubuntu:ubuntu /opt/deutschmeister
 
 cat > .env <<'EOF'
 NEXTAUTH_URL=https://thecloudtitan.de
@@ -39,5 +40,20 @@ COGNITO_ISSUER="https://cognito-idp.us-east-1.amazonaws.com/us-east-1_NLWDaRRCx"
 POSTGRES_PASSWORD=pguserpassword
 EOF
 
+# Ensure docker-compose uses Docker Hub image
+sed -i 's|build:.*|image: yeshdock/deutschmeister:latest|g' docker-compose.yml
+sed -i '/dockerfile:/d' docker-compose.yml
+sed -i '/context:/d' docker-compose.yml
+
 docker pull yeshdock/deutschmeister:latest
 docker compose up -d
+
+# Apply migrations if present
+docker compose exec app pnpm prisma migrate deploy
+
+# TLS setup is manual after DNS is live:
+# docker compose stop nginx
+# docker compose run --rm --service-ports --entrypoint certbot certbot certonly --standalone \
+#   -d thecloudtitan.de -d www.thecloudtitan.de \
+#   --email you@thecloudtitan.de --agree-tos --no-eff-email
+# docker compose up -d
