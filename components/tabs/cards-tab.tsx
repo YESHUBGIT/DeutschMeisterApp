@@ -1,16 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RotateCcw, ChevronLeft, ChevronRight, Check, X, Shuffle, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { lessonCatalog } from "@/lib/lesson-catalog"
 
 const cardDecks = [
   {
     id: "pronouns",
     title: "Personal Pronouns",
     description: "ich, du, er, sie, es, wir, ihr, sie, Sie",
+    lessonId: "personal-pronouns",
     cards: [
       { id: 1, front: "ich", back: "I", hint: "Always lowercase unless starting sentence" },
       { id: 2, front: "du", back: "you (informal)", hint: "For friends, family, children" },
@@ -27,6 +30,7 @@ const cardDecks = [
     id: "possessives",
     title: "Possessive Articles",
     description: "mein, dein, sein, ihr, unser, euer, Ihr",
+    lessonId: "possessive-articles",
     cards: [
       { id: 1, front: "mein", back: "my", hint: "From ich" },
       { id: 2, front: "dein", back: "your (informal)", hint: "From du" },
@@ -42,6 +46,7 @@ const cardDecks = [
     id: "prepositions-akk",
     title: "Accusative Prepositions (DOGFU)",
     description: "durch, ohne, gegen, für, um",
+    lessonId: "prepositions-by-case",
     cards: [
       { id: 1, front: "durch", back: "through", hint: "Always Accusative" },
       { id: 2, front: "ohne", back: "without", hint: "Always Accusative" },
@@ -57,6 +62,7 @@ const cardDecks = [
     id: "prepositions-dat",
     title: "Dative Prepositions",
     description: "aus, bei, mit, nach, seit, von, zu",
+    lessonId: "prepositions-by-case",
     cards: [
       { id: 1, front: "aus", back: "out of / from", hint: "Always Dative" },
       { id: 2, front: "bei", back: "at / near / with", hint: "Always Dative" },
@@ -74,6 +80,7 @@ const cardDecks = [
     id: "connectors",
     title: "Connectors & Verb Position",
     description: "Learn which connectors change verb position",
+    lessonId: "connectors-verb-position",
     cards: [
       { id: 1, front: "und", back: "and (no change)", hint: "Type 0 - verb stays in position 2" },
       { id: 2, front: "aber", back: "but (no change)", hint: "Type 0 - verb stays in position 2" },
@@ -91,6 +98,7 @@ const cardDecks = [
     id: "modal-present",
     title: "Modal Verbs - Present",
     description: "können, müssen, wollen, dürfen, sollen, mögen",
+    lessonId: "modal-verbs",
     cards: [
       { id: 1, front: "Ich kann es machen", back: "I can do it", hint: "können - ability" },
       { id: 2, front: "Ich darf es machen", back: "I may do it (allowed)", hint: "dürfen - permission" },
@@ -106,6 +114,7 @@ const cardDecks = [
     id: "modal-konjunktiv",
     title: "Modal Verbs - Konjunktiv II",
     description: "Polite/hypothetical: could, would, should",
+    lessonId: "konjunktiv-2",
     cards: [
       { id: 1, front: "Ich könnte es machen", back: "I could do it", hint: "Polite/hypothetical" },
       { id: 2, front: "Ich dürfte es machen", back: "I might be allowed to do it", hint: "Polite permission" },
@@ -121,6 +130,7 @@ const cardDecks = [
     id: "past-conditional",
     title: "Past Conditional",
     description: "Would have / could have / should have",
+    lessonId: "konjunktiv-2",
     cards: [
       { id: 1, front: "Ich hätte es machen können", back: "I could have done it", hint: "But I didn't" },
       { id: 2, front: "Ich hätte es machen dürfen", back: "I may have been allowed to do it", hint: "Missed opportunity" },
@@ -136,6 +146,7 @@ const cardDecks = [
     id: "werden-uses",
     title: "WERDEN - 3 Uses",
     description: "Full verb, future helper, passive helper",
+    lessonId: "werden-forms",
     cards: [
       { id: 1, front: "Er wird müde.", back: "He is becoming tired.", hint: "Full verb = to become" },
       { id: 2, front: "Er wurde müde.", back: "He became tired.", hint: "Präteritum of werden" },
@@ -151,6 +162,7 @@ const cardDecks = [
     id: "passive-voice",
     title: "Passive Voice Tenses",
     description: "werden + Partizip II across all tenses",
+    lessonId: "passive-voice",
     cards: [
       { id: 1, front: "Das Buch wird gelesen.", back: "The book is being read.", hint: "Präsens Passiv" },
       { id: 2, front: "Das Buch wurde gelesen.", back: "The book was read.", hint: "Präteritum Passiv" },
@@ -166,6 +178,7 @@ const cardDecks = [
     id: "active-vs-passive",
     title: "Active vs Passive Comparison",
     description: "Side-by-side tense comparison",
+    lessonId: "passive-voice",
     cards: [
       { id: 1, front: "Ich lese ein Buch.", back: "Das Buch wird gelesen.", hint: "Präsens: Active vs Passive" },
       { id: 2, front: "Ich las ein Buch.", back: "Das Buch wurde gelesen.", hint: "Präteritum: Active vs Passive" },
@@ -181,6 +194,7 @@ const cardDecks = [
     id: "modal-perfect",
     title: "Modal + Perfect Infinitive",
     description: "Assumptions about the past",
+    lessonId: "konjunktiv-2",
     cards: [
       { id: 1, front: "Er könnte das gesagt haben.", back: "He might have said that.", hint: "Possibility - können" },
       { id: 2, front: "Er dürfte schon angekommen sein.", back: "He is likely to have arrived already.", hint: "Probability - dürfen" },
@@ -196,6 +210,7 @@ const cardDecks = [
     id: "question-words",
     title: "Question Words",
     description: "W-Fragen and prepositional questions",
+    lessonId: "question-words",
     cards: [
       { id: 1, front: "was", back: "what", hint: "Basic W-question" },
       { id: 2, front: "wer", back: "who (nom)", hint: "Subject question" },
@@ -211,6 +226,7 @@ const cardDecks = [
     id: "dative-verbs",
     title: "Dative Verbs",
     description: "Verbs that ALWAYS take Dative",
+    lessonId: "cases-basics",
     cards: [
       { id: 1, front: "helfen + Dat", back: "to help", hint: "Ich helfe DIR" },
       { id: 2, front: "danken + Dat", back: "to thank", hint: "Ich danke DIR" },
@@ -226,6 +242,7 @@ const cardDecks = [
     id: "reflexive",
     title: "Reflexive Verbs",
     description: "Verbs that require reflexive pronouns",
+    lessonId: "reflexive-verbs",
     cards: [
       { id: 1, front: "sich freuen auf + Akk", back: "to look forward to", hint: "Future event" },
       { id: 2, front: "sich freuen über + Akk", back: "to be happy about", hint: "Current/past event" },
@@ -241,6 +258,7 @@ const cardDecks = [
 
 export function CardsTab() {
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null)
+  const [selectedLesson, setSelectedLesson] = useState("all")
   const [cards, setCards] = useState<typeof cardDecks[0]["cards"]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
@@ -251,6 +269,14 @@ export function CardsTab() {
   const currentCard = cards[currentIndex]
   const progress = cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0
   const currentDeck = cardDecks.find(d => d.id === selectedDeck)
+
+  const filteredDecks = useMemo(() => {
+    if (selectedLesson === "all") {
+      return cardDecks
+    }
+
+    return cardDecks.filter(deck => deck.lessonId === selectedLesson)
+  }, [selectedLesson])
 
   const startDeck = (deckId: string) => {
     const deck = cardDecks.find(d => d.id === deckId)
@@ -327,32 +353,64 @@ export function CardsTab() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {cardDecks.map((deck) => (
-            <Card 
-              key={deck.id}
-              className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all"
-              onClick={() => startDeck(deck.id)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{deck.title}</CardTitle>
-                      <CardDescription className="text-xs">{deck.description}</CardDescription>
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold">Lesson Filter</p>
+                <p className="text-sm text-muted-foreground">Pick a lesson or study everything.</p>
+              </div>
+              <Select value={selectedLesson} onValueChange={setSelectedLesson}>
+                <SelectTrigger className="w-full md:w-[320px]">
+                  <SelectValue placeholder="Select lesson" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Lessons</SelectItem>
+                  {lessonCatalog.map((lesson) => (
+                    <SelectItem key={lesson.id} value={lesson.id}>
+                      {lesson.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {filteredDecks.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No decks found for this lesson.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredDecks.map((deck) => (
+              <Card 
+                key={deck.id}
+                className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all"
+                onClick={() => startDeck(deck.id)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Layers className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{deck.title}</CardTitle>
+                        <CardDescription className="text-xs">{deck.description}</CardDescription>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">{deck.cards.length} cards</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{deck.cards.length} cards</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     )
   }

@@ -4,8 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Volume2, Star, Filter } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { lessonCatalog } from "@/lib/lesson-catalog"
 
 const categories = [
   { id: "all", label: "All Words" },
@@ -303,9 +305,30 @@ const vocabulary = [
   { id: 298, german: "denken an + Akk", english: "to think about", category: "verbs", article: null, starred: false, note: "Ich denke an dich" },
 ]
 
+const lessonByCategory: Record<string, string> = {
+  pronouns: "personal-pronouns",
+  possessives: "possessive-articles",
+  prepositions: "prepositions-by-case",
+  connectors: "connectors-verb-position",
+  "question-words": "question-words",
+  "modal-verbs": "modal-verbs",
+  "verb-tenses": "verb-tenses",
+  werden: "werden-forms",
+  passive: "passive-voice",
+  konjunktiv: "konjunktiv-2",
+  "reflexive-verbs": "reflexive-verbs",
+  "separable-verbs": "separable-verbs",
+  nouns: "cases-basics",
+  verbs: "verbs-with-prep",
+  "regular-verbs": "verb-tenses",
+  "irregular-verbs": "verb-tenses",
+  "mixed-verbs": "verb-tenses",
+}
+
 export function VocabTab() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState("all")
+  const [selectedLesson, setSelectedLesson] = useState("all")
   const [starredWords, setStarredWords] = useState<number[]>(
     vocabulary.filter(v => v.starred).map(v => v.id)
   )
@@ -316,7 +339,8 @@ export function VocabTab() {
       word.english.toLowerCase().includes(searchQuery.toLowerCase()) ||
       word.note?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = activeCategory === "all" || word.category === activeCategory
-    return matchesSearch && matchesCategory
+    const lessonMatch = selectedLesson === "all" || lessonByCategory[word.category] === selectedLesson
+    return matchesSearch && matchesCategory && lessonMatch
   })
 
   const toggleStar = (id: number) => {
@@ -402,7 +426,8 @@ export function VocabTab() {
                 className="pl-10"
               />
             </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
               <Filter className="w-5 h-5 text-muted-foreground shrink-0" />
               {categories.map((category) => (
                 <Button
@@ -415,6 +440,20 @@ export function VocabTab() {
                   {category.label}
                 </Button>
               ))}
+              </div>
+              <Select value={selectedLesson} onValueChange={setSelectedLesson}>
+                <SelectTrigger className="w-full md:w-[260px]">
+                  <SelectValue placeholder="Select lesson" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Lessons</SelectItem>
+                  {lessonCatalog.map((lesson) => (
+                    <SelectItem key={lesson.id} value={lesson.id}>
+                      {lesson.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

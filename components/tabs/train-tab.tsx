@@ -1,38 +1,40 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Check, X, RotateCcw, Trophy, Target, Brain, Zap, BookOpen } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { lessonCatalog } from "@/lib/lesson-catalog"
 
 type ExerciseType = "translation" | "fillBlank" | "multipleChoice" | "verbPosition" | null
 
 const exercises = {
   translation: [
-    { id: 1, german: "Ich bin Student.", english: "I am a student." },
-    { id: 2, german: "Du bist mein Freund.", english: "You are my friend." },
-    { id: 3, german: "Sie sind sehr nett.", english: "You are very nice." },
-    { id: 4, german: "Wir lernen Deutsch.", english: "We are learning German." },
-    { id: 5, german: "Das ist mein Bruder.", english: "This is my brother." },
-    { id: 6, german: "Ich freue mich auf die Party.", english: "I am looking forward to the party." },
-    { id: 7, german: "Er interessiert sich für Musik.", english: "He is interested in music." },
-    { id: 8, german: "Ich warte auf den Bus.", english: "I am waiting for the bus." },
-    { id: 9, german: "Sie kommt aus Deutschland.", english: "She comes from Germany." },
-    { id: 10, german: "Möchtest du einen Kaffee?", english: "Would you like a coffee?" },
+    { id: 1, german: "Ich bin Student.", english: "I am a student.", lessonId: "personal-pronouns" },
+    { id: 2, german: "Du bist mein Freund.", english: "You are my friend.", lessonId: "personal-pronouns" },
+    { id: 3, german: "Sie sind sehr nett.", english: "You are very nice.", lessonId: "personal-pronouns" },
+    { id: 4, german: "Wir lernen Deutsch.", english: "We are learning German.", lessonId: "personal-pronouns" },
+    { id: 5, german: "Das ist mein Bruder.", english: "This is my brother.", lessonId: "possessive-articles" },
+    { id: 6, german: "Ich freue mich auf die Party.", english: "I am looking forward to the party.", lessonId: "reflexive-verbs" },
+    { id: 7, german: "Er interessiert sich für Musik.", english: "He is interested in music.", lessonId: "reflexive-verbs" },
+    { id: 8, german: "Ich warte auf den Bus.", english: "I am waiting for the bus.", lessonId: "verbs-with-prep" },
+    { id: 9, german: "Sie kommt aus Deutschland.", english: "She comes from Germany.", lessonId: "prepositions-by-case" },
+    { id: 10, german: "Möchtest du einen Kaffee?", english: "Would you like a coffee?", lessonId: "konjunktiv-2" },
   ],
   fillBlank: [
-    { id: 1, sentence: "___ bin Student.", answer: "Ich", options: ["Ich", "Du", "Er", "Wir"], hint: "I am a student" },
-    { id: 2, sentence: "Das ist ___ Buch.", answer: "mein", options: ["mein", "dein", "sein", "ihr"], hint: "my book" },
-    { id: 3, sentence: "Ich fahre ___ dem Bus.", answer: "mit", options: ["mit", "für", "ohne", "durch"], hint: "by bus (Dative prep)" },
-    { id: 4, sentence: "Das Geschenk ist ___ dich.", answer: "für", options: ["für", "mit", "von", "zu"], hint: "for you (Accusative prep)" },
-    { id: 5, sentence: "Ich ___ schwimmen.", answer: "kann", options: ["kann", "kannst", "können", "könnt"], hint: "I can swim" },
-    { id: 6, sentence: "Er ___ seine Hausaufgaben machen.", answer: "muss", options: ["muss", "musst", "müssen", "müsst"], hint: "He must do" },
-    { id: 7, sentence: "Ich bleibe zu Hause, ___ ich krank bin.", answer: "weil", options: ["weil", "und", "aber", "oder"], hint: "because (verb to end)" },
-    { id: 8, sentence: "___ wartest du?", answer: "Worauf", options: ["Worauf", "Auf wen", "Warum", "Wohin"], hint: "What are you waiting for? (thing)" },
-    { id: 9, sentence: "Ich sehe ___ Mann.", answer: "den", options: ["der", "den", "dem", "des"], hint: "Accusative masculine" },
-    { id: 10, sentence: "Ich helfe ___ Freund.", answer: "meinem", options: ["meinen", "meinem", "mein", "meine"], hint: "Dative - helfen takes Dative!" },
+    { id: 1, sentence: "___ bin Student.", answer: "Ich", options: ["Ich", "Du", "Er", "Wir"], hint: "I am a student", lessonId: "personal-pronouns" },
+    { id: 2, sentence: "Das ist ___ Buch.", answer: "mein", options: ["mein", "dein", "sein", "ihr"], hint: "my book", lessonId: "possessive-articles" },
+    { id: 3, sentence: "Ich fahre ___ dem Bus.", answer: "mit", options: ["mit", "für", "ohne", "durch"], hint: "by bus (Dative prep)", lessonId: "prepositions-by-case" },
+    { id: 4, sentence: "Das Geschenk ist ___ dich.", answer: "für", options: ["für", "mit", "von", "zu"], hint: "for you (Accusative prep)", lessonId: "prepositions-by-case" },
+    { id: 5, sentence: "Ich ___ schwimmen.", answer: "kann", options: ["kann", "kannst", "können", "könnt"], hint: "I can swim", lessonId: "modal-verbs" },
+    { id: 6, sentence: "Er ___ seine Hausaufgaben machen.", answer: "muss", options: ["muss", "musst", "müssen", "müsst"], hint: "He must do", lessonId: "modal-verbs" },
+    { id: 7, sentence: "Ich bleibe zu Hause, ___ ich krank bin.", answer: "weil", options: ["weil", "und", "aber", "oder"], hint: "because (verb to end)", lessonId: "connectors-verb-position" },
+    { id: 8, sentence: "___ wartest du?", answer: "Worauf", options: ["Worauf", "Auf wen", "Warum", "Wohin"], hint: "What are you waiting for? (thing)", lessonId: "question-words" },
+    { id: 9, sentence: "Ich sehe ___ Mann.", answer: "den", options: ["der", "den", "dem", "des"], hint: "Accusative masculine", lessonId: "cases-basics" },
+    { id: 10, sentence: "Ich helfe ___ Freund.", answer: "meinem", options: ["meinen", "meinem", "mein", "meine"], hint: "Dative - helfen takes Dative!", lessonId: "cases-basics" },
   ],
   multipleChoice: [
     { 
@@ -40,70 +42,80 @@ const exercises = {
       question: "Which preposition always takes DATIVE?", 
       answer: "mit", 
       options: ["für", "mit", "durch", "ohne"],
-      hint: "Think: with whom"
+      hint: "Think: with whom",
+      lessonId: "prepositions-by-case",
     },
     { 
       id: 2, 
       question: "Which connector sends the verb to the END?", 
       answer: "weil", 
       options: ["und", "weil", "aber", "deshalb"],
-      hint: "Type 1 connector"
+      hint: "Type 1 connector",
+      lessonId: "connectors-verb-position",
     },
     { 
       id: 3, 
       question: "'Worüber' is used to ask about...", 
       answer: "things", 
       options: ["people", "things", "places", "times"],
-      hint: "wo + preposition = for things"
+      hint: "wo + preposition = for things",
+      lessonId: "question-words",
     },
     { 
       id: 4, 
       question: "Which verb ALWAYS takes Dative?", 
       answer: "helfen", 
       options: ["sehen", "helfen", "haben", "machen"],
-      hint: "Ich helfe DIR"
+      hint: "Ich helfe DIR",
+      lessonId: "cases-basics",
     },
     { 
       id: 5, 
       question: "What is 'ich möchte'?", 
       answer: "I would like", 
       options: ["I must", "I can", "I would like", "I want"],
-      hint: "Polite form of wollen"
+      hint: "Polite form of wollen",
+      lessonId: "konjunktiv-2",
     },
     { 
       id: 6, 
       question: "'-ung' ending nouns are always...", 
       answer: "feminine (die)", 
       options: ["masculine (der)", "feminine (die)", "neuter (das)", "varies"],
-      hint: "die Zeitung, die Übung"
+      hint: "die Zeitung, die Übung",
+      lessonId: "nouns-basic",
     },
     { 
       id: 7, 
       question: "In 'Ich sehe den Mann', why 'den'?", 
       answer: "Direct object = Accusative", 
       options: ["Subject = Nominative", "Direct object = Accusative", "Indirect object = Dative", "Possession = Genitive"],
-      hint: "sehen takes what case?"
+      hint: "sehen takes what case?",
+      lessonId: "cases-basics",
     },
     { 
       id: 8, 
       question: "'sich freuen auf' means...", 
       answer: "to look forward to", 
       options: ["to be happy about", "to look forward to", "to laugh at", "to think about"],
-      hint: "Future anticipation"
+      hint: "Future anticipation",
+      lessonId: "reflexive-verbs",
     },
     { 
       id: 9, 
       question: "Formal 'you' (Sie) is always...", 
       answer: "capitalized", 
       options: ["lowercase", "capitalized", "both depending on position", "optional"],
-      hint: "Respect in writing"
+      hint: "Respect in writing",
+      lessonId: "personal-pronouns",
     },
     { 
       id: 10, 
       question: "'Könnten Sie mir helfen?' is more ___ than 'Können Sie...'", 
       answer: "polite", 
       options: ["casual", "polite", "formal", "informal"],
-      hint: "Konjunktiv II effect"
+      hint: "Konjunktiv II effect",
+      lessonId: "konjunktiv-2",
     },
   ],
   verbPosition: [
@@ -112,56 +124,64 @@ const exercises = {
       question: "Put in correct order: ich / müde / bin / weil",
       answer: "weil ich müde bin",
       options: ["weil ich müde bin", "weil müde ich bin", "weil bin ich müde", "ich weil müde bin"],
-      hint: "'weil' sends verb to END"
+      hint: "'weil' sends verb to END",
+      lessonId: "connectors-verb-position",
     },
     {
       id: 2,
       question: "Put in correct order: deshalb / ich / bleibe / zu Hause",
       answer: "Deshalb bleibe ich zu Hause",
       options: ["Deshalb bleibe ich zu Hause", "Deshalb ich bleibe zu Hause", "Ich deshalb bleibe zu Hause", "Bleibe deshalb ich zu Hause"],
-      hint: "'deshalb' = verb comes right after"
+      hint: "'deshalb' = verb comes right after",
+      lessonId: "connectors-verb-position",
     },
     {
       id: 3,
       question: "Put in correct order: ich / gut / schwimmen / kann",
       answer: "Ich kann gut schwimmen",
       options: ["Ich kann gut schwimmen", "Ich gut kann schwimmen", "Ich schwimmen kann gut", "Kann ich gut schwimmen"],
-      hint: "Modal verb position"
+      hint: "Modal verb position",
+      lessonId: "modal-verbs",
     },
     {
       id: 4,
       question: "Put in correct order: der Film / um 8 / an / fängt",
       answer: "Der Film fängt um 8 an",
       options: ["Der Film fängt um 8 an", "Der Film anfängt um 8", "Der Film an um 8 fängt", "Fängt der Film um 8 an"],
-      hint: "Separable verb 'anfangen'"
+      hint: "Separable verb 'anfangen'",
+      lessonId: "separable-verbs",
     },
     {
       id: 5,
       question: "Put in correct order: ich / auf / meine Freundin / warte",
       answer: "Ich warte auf meine Freundin",
       options: ["Ich warte auf meine Freundin", "Ich auf warte meine Freundin", "Warte ich auf meine Freundin", "Ich warte meine Freundin auf"],
-      hint: "warten auf + Accusative"
+      hint: "warten auf + Accusative",
+      lessonId: "verbs-with-prep",
     },
     {
       id: 6,
       question: "What happens after 'obwohl'?",
       answer: "Verb goes to end",
       options: ["Verb stays in position 2", "Verb goes to end", "Verb comes first", "No change"],
-      hint: "Type 1 connector"
+      hint: "Type 1 connector",
+      lessonId: "connectors-verb-position",
     },
     {
       id: 7,
       question: "Put in correct order: dass / er / krank / ist / ich / glaube",
       answer: "Ich glaube, dass er krank ist",
       options: ["Ich glaube, dass er krank ist", "Ich glaube, dass ist er krank", "Dass er krank ist, ich glaube", "Ich dass glaube er krank ist"],
-      hint: "'dass' sends verb to end of subordinate clause"
+      hint: "'dass' sends verb to end of subordinate clause",
+      lessonId: "connectors-verb-position",
     },
     {
       id: 8,
       question: "When 'weil' clause comes FIRST, what happens?",
       answer: "Main clause verb comes right after",
       options: ["Nothing special", "Main clause verb comes right after", "Main clause verb goes to end too", "Both verbs in middle"],
-      hint: "Verb-verb at the comma"
+      hint: "Verb-verb at the comma",
+      lessonId: "connectors-verb-position",
     },
   ],
 }
@@ -199,6 +219,7 @@ const exerciseTypes = [
 
 export function TrainTab() {
   const [selectedType, setSelectedType] = useState<ExerciseType>(null)
+  const [selectedLesson, setSelectedLesson] = useState("all")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState("")
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
@@ -206,9 +227,50 @@ export function TrainTab() {
   const [isCorrect, setIsCorrect] = useState(false)
   const [score, setScore] = useState({ correct: 0, total: 0 })
 
-  const currentExercises = selectedType ? exercises[selectedType] : []
+  const lessonCounts = useMemo(() => {
+    return exerciseTypes.reduce<Record<string, number>>((acc, type) => {
+      const items = exercises[type.id]
+      acc[type.id] = selectedLesson === "all"
+        ? items.length
+        : items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === selectedLesson).length
+      return acc
+    }, {})
+  }, [selectedLesson])
+
+  const filteredExercises = useMemo(() => {
+    if (!selectedType) {
+      return []
+    }
+
+    const items = exercises[selectedType]
+    if (selectedLesson === "all") {
+      return items
+    }
+
+    return items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === selectedLesson)
+  }, [selectedLesson, selectedType])
+
+  const currentExercises = filteredExercises
   const currentExercise = currentExercises[currentIndex]
   const isLastExercise = currentIndex === currentExercises.length - 1
+
+  const handleLessonChange = (value: string) => {
+    setSelectedLesson(value)
+    setCurrentIndex(0)
+    setUserAnswer("")
+    setSelectedOption(null)
+    setShowResult(false)
+    setIsCorrect(false)
+  }
+
+  const handleSelectType = (type: ExerciseType) => {
+    setSelectedType(type)
+    setCurrentIndex(0)
+    setUserAnswer("")
+    setSelectedOption(null)
+    setShowResult(false)
+    setIsCorrect(false)
+  }
 
   const checkAnswer = () => {
     let correct = false
@@ -259,6 +321,30 @@ export function TrainTab() {
           </p>
         </div>
 
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold">Lesson Filter</p>
+                <p className="text-sm text-muted-foreground">Choose a lesson or practice everything.</p>
+              </div>
+              <Select value={selectedLesson} onValueChange={handleLessonChange}>
+                <SelectTrigger className="w-full md:w-[320px]">
+                  <SelectValue placeholder="Select lesson" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Lessons</SelectItem>
+                  {lessonCatalog.map((lesson) => (
+                    <SelectItem key={lesson.id} value={lesson.id}>
+                      {lesson.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid gap-6 md:grid-cols-2">
           {exerciseTypes.map((type) => {
             const Icon = type.icon
@@ -266,7 +352,7 @@ export function TrainTab() {
               <Card 
                 key={type.id}
                 className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all"
-                onClick={() => setSelectedType(type.id)}
+                onClick={() => handleSelectType(type.id)}
               >
                 <CardHeader className="text-center">
                   <div className={cn("w-16 h-16 mx-auto rounded-full flex items-center justify-center", type.color)}>
@@ -277,7 +363,7 @@ export function TrainTab() {
                 </CardHeader>
                 <CardContent className="text-center">
                   <p className="text-sm text-muted-foreground">
-                    {exercises[type.id].length} exercises
+                    {lessonCounts[type.id]} exercises
                   </p>
                 </CardContent>
               </Card>
@@ -313,6 +399,37 @@ export function TrainTab() {
               <RotateCcw className="w-4 h-4 mr-2" />
               Try Another Exercise
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (selectedType && currentExercises.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" onClick={resetExercise}>
+          ← Back to Exercise Types
+        </Button>
+        <Card>
+          <CardContent className="py-8 text-center space-y-3">
+            <h2 className="text-2xl font-bold">No exercises found</h2>
+            <p className="text-muted-foreground">
+              Try a different lesson or switch back to All Lessons.
+            </p>
+            <Select value={selectedLesson} onValueChange={handleLessonChange}>
+              <SelectTrigger className="w-full max-w-sm mx-auto">
+                <SelectValue placeholder="Select lesson" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Lessons</SelectItem>
+                {lessonCatalog.map((lesson) => (
+                  <SelectItem key={lesson.id} value={lesson.id}>
+                    {lesson.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
       </div>
