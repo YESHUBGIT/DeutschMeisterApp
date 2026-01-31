@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,7 @@ type ChatMessage = {
   content: string
 }
 
-const apiBase = process.env.NEXT_PUBLIC_CHAT_API_BASE
+const staticApiBase = process.env.NEXT_PUBLIC_CHAT_API_BASE
 
 const defaultLessonIntro = "Hallo! Ich bin dein Deutsch-Coach. Lass uns eine kurze Uebung machen. Antworte auf Deutsch."
 const defaultFreeIntro = "Hallo! Ich bin dein Deutsch-Partner. Wir koennen ueber alles sprechen."
@@ -26,11 +26,31 @@ export function ConversationTab() {
   const [mode, setMode] = useState<"lesson" | "free">("lesson")
   const [lessonId, setLessonId] = useState("personal-pronouns")
   const [input, setInput] = useState("")
+  const [apiBase, setApiBase] = useState(staticApiBase ?? "")
   const [messages, setMessages] = useState<ChatMessage[]>([{
     role: "assistant",
     content: defaultLessonIntro,
   }])
   const [isSending, setIsSending] = useState(false)
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch("/api/chat/config")
+        if (!response.ok) {
+          return
+        }
+        const data = await response.json()
+        if (data?.apiBase) {
+          setApiBase(data.apiBase)
+        }
+      } catch (error) {
+        // ignore
+      }
+    }
+
+    fetchConfig()
+  }, [])
 
   const systemPrompt = useMemo(() => {
     if (mode === "free") {
