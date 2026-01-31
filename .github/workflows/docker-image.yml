@@ -30,3 +30,14 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/deutschmeister:latest
+
+      - name: Deploy to AWS server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 3.94.163.196
+          username: ubuntu
+          key: ${{ secrets.AWS_SSH_KEY }}
+          script: |
+            cd /opt/deutschmeister
+            docker pull yeshdock/deutschmeister:latest
+            docker compose up -d
