@@ -7,6 +7,7 @@ export type LessonCatalogItem = {
 export const lessonCatalog: LessonCatalogItem[] = [
   { id: "personal-pronouns", title: "Personal Pronouns (Personalpronomen)", group: "Foundations" },
   { id: "possessive-articles", title: "Possessive Articles (Possessivartikel)", group: "Foundations" },
+  { id: "articles-gender", title: "Articles & Gender", group: "Foundations" },
   { id: "prepositions-by-case", title: "Prepositions by Case", group: "Cases" },
   { id: "connectors-verb-position", title: "Connectors & Verb Position", group: "Word Order" },
   { id: "question-words", title: "Question Words (W-Fragen)", group: "Foundations" },

@@ -256,9 +256,14 @@ const cardDecks = [
   },
 ]
 
-export function CardsTab() {
+interface CardsTabProps {
+  selectedLesson?: string
+  onLessonChange?: (lessonId: string) => void
+}
+
+export function CardsTab({ selectedLesson, onLessonChange }: CardsTabProps) {
   const [selectedDeck, setSelectedDeck] = useState<string | null>(null)
-  const [selectedLesson, setSelectedLesson] = useState("all")
+  const [localLesson, setLocalLesson] = useState("all")
   const [cards, setCards] = useState<typeof cardDecks[0]["cards"]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
@@ -270,13 +275,16 @@ export function CardsTab() {
   const progress = cards.length > 0 ? ((currentIndex + 1) / cards.length) * 100 : 0
   const currentDeck = cardDecks.find(d => d.id === selectedDeck)
 
+  const lessonValue = selectedLesson ?? localLesson
+  const handleLessonValueChange = onLessonChange ?? setLocalLesson
+
   const filteredDecks = useMemo(() => {
-    if (selectedLesson === "all") {
+    if (lessonValue === "all") {
       return cardDecks
     }
 
-    return cardDecks.filter(deck => deck.lessonId === selectedLesson)
-  }, [selectedLesson])
+    return cardDecks.filter(deck => deck.lessonId === lessonValue)
+  }, [lessonValue])
 
   const startDeck = (deckId: string) => {
     const deck = cardDecks.find(d => d.id === deckId)
@@ -360,7 +368,7 @@ export function CardsTab() {
                 <p className="font-semibold">Lesson Filter</p>
                 <p className="text-sm text-muted-foreground">Pick a lesson or study everything.</p>
               </div>
-              <Select value={selectedLesson} onValueChange={setSelectedLesson}>
+              <Select value={lessonValue} onValueChange={handleLessonValueChange}>
                 <SelectTrigger className="w-full md:w-[320px]">
                   <SelectValue placeholder="Select lesson" />
                 </SelectTrigger>

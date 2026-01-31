@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 
 interface LessonsTabProps {
   onNavigate: (tab: TabType) => void
+  onNavigateWithLesson?: (tab: TabType, lessonId?: string) => void
 }
 
 // Tree structure for verb lessons
@@ -1093,6 +1094,7 @@ const casesTree = {
 const regularLessons = [
   {
     id: 101,
+    lessonId: "personal-pronouns",
     title: "Personal Pronouns (Personalpronomen)",
     description: "Learn the subject pronouns - your first step to building sentences",
     level: "Beginner",
@@ -1130,6 +1132,7 @@ const regularLessons = [
   },
   {
     id: 102,
+    lessonId: "possessive-articles",
     title: "Possessive Articles (Possessivartikel)",
     description: "Express ownership - my, your, his, her, etc.",
     level: "Beginner",
@@ -1167,6 +1170,7 @@ const regularLessons = [
   },
   {
     id: 103,
+    lessonId: "articles-gender",
     title: "Articles & Gender",
     description: "Master der/die/das - the key to German nouns",
     level: "Beginner",
@@ -1198,6 +1202,7 @@ const regularLessons = [
   },
   {
     id: 104,
+    lessonId: "prepositions-by-case",
     title: "Prepositions & Intoduction to Cases",
     description: "Master prepositions - they determine which case to use!",
     level: "Intermediate",
@@ -1228,6 +1233,7 @@ const regularLessons = [
   },
   {
     id: 105,
+    lessonId: "question-words",
     title: "Question Words (W-Fragen)",
     description: "Ask questions - including wo+prep vs prep+wen/wem",
     level: "Beginner",
@@ -1258,6 +1264,7 @@ const regularLessons = [
   },
   {
     id: 106,
+    lessonId: "connectors-verb-position",
     title: "Connectors & Word Order",
     description: "Join sentences - but watch the verb position!",
     level: "Intermediate",
@@ -1287,7 +1294,7 @@ const regularLessons = [
   },
 ]
 
-export function LessonsTab({ onNavigate }: LessonsTabProps) {
+export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps) {
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null)
   const [activeTree, setActiveTree] = useState<"verbs" | "cases" | null>(null)
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
@@ -1333,7 +1340,38 @@ export function LessonsTab({ onNavigate }: LessonsTabProps) {
   const currentTopic = currentBranch?.topics.find(t => t.id === selectedTopic)
 
   // Render verb lesson content
-  const renderVerbContent = (content: LessonContent) => {
+  const resolveLessonIdForLinks = () => {
+    if (selectedLesson !== null) {
+      const lesson = regularLessons.find((l) => l.id === selectedLesson)
+      return lesson?.lessonId
+    }
+
+    if (activeTree === "cases") {
+      return "cases-basics"
+    }
+
+    if (!currentTopic) {
+      return "verb-tenses"
+    }
+
+    const topicMap: Record<string, string> = {
+      separable: "separable-verbs",
+      reflexive: "reflexive-verbs",
+      "verbs-prepositions": "verbs-with-prep",
+      "passive-intro": "passive-voice",
+      "passive-tenses": "passive-voice",
+      "active-passive-compare": "passive-voice",
+      "werden-overview": "werden-forms",
+      "modal-verbs": "modal-verbs",
+      "modal-perfect": "konjunktiv-2",
+      konjunktiv2: "konjunktiv-2",
+      konjunktiv1: "konjunktiv-2",
+    }
+
+    return topicMap[currentTopic.id] ?? "verb-tenses"
+  }
+
+  const renderVerbContent = (content: LessonContent, lessonId?: string) => {
     const tables = (Array.isArray(content.table)
       ? content.table
       : [content.table]) as Array<{
@@ -1341,6 +1379,15 @@ export function LessonsTab({ onNavigate }: LessonsTabProps) {
       headers: string[]
       rows: string[][]
     }>
+
+    const effectiveLessonId = lessonId ?? resolveLessonIdForLinks()
+    const handleNavigateWithLesson = (tab: TabType) => {
+      if (onNavigateWithLesson) {
+        onNavigateWithLesson(tab, effectiveLessonId)
+        return
+      }
+      onNavigate(tab)
+    }
 
     return (
       <div className="space-y-6">
@@ -1459,11 +1506,11 @@ export function LessonsTab({ onNavigate }: LessonsTabProps) {
 
       {/* Navigation Links */}
       <div className="flex flex-wrap gap-2 pt-4 border-t">
-        <Button variant="outline" size="sm" onClick={() => onNavigate("vocab")} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => handleNavigateWithLesson("vocab")} className="gap-2">
           <BookText className="h-4 w-4" />
           Study Vocabulary
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onNavigate("cards")} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => handleNavigateWithLesson("cards")} className="gap-2">
           <Layers className="h-4 w-4" />
           Practice Flashcards
         </Button>
@@ -1514,7 +1561,7 @@ export function LessonsTab({ onNavigate }: LessonsTabProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {renderVerbContent(currentTopic.content)}
+              {renderVerbContent(currentTopic.content, resolveLessonIdForLinks())}
             </CardContent>
           </Card>
         ) : selectedBranch && currentBranch ? (
@@ -1683,7 +1730,10 @@ export function LessonsTab({ onNavigate }: LessonsTabProps) {
             <CardDescription>{lesson.description}</CardDescription>
           </CardHeader>
           <CardContent>
-            {renderVerbContent(lesson.content as typeof verbTree.branches[0]["topics"][0]["content"])}
+            {renderVerbContent(
+              lesson.content as typeof verbTree.branches[0]["topics"][0]["content"],
+              lesson.lessonId
+            )}
           </CardContent>
         </Card>
       </div>

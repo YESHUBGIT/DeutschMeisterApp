@@ -318,20 +318,28 @@ const lessonByCategory: Record<string, string> = {
   konjunktiv: "konjunktiv-2",
   "reflexive-verbs": "reflexive-verbs",
   "separable-verbs": "separable-verbs",
-  nouns: "cases-basics",
+  nouns: "articles-gender",
   verbs: "verbs-with-prep",
   "regular-verbs": "verb-tenses",
   "irregular-verbs": "verb-tenses",
   "mixed-verbs": "verb-tenses",
 }
 
-export function VocabTab() {
+interface VocabTabProps {
+  selectedLesson?: string
+  onLessonChange?: (lessonId: string) => void
+}
+
+export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState("all")
-  const [selectedLesson, setSelectedLesson] = useState("all")
+  const [localLesson, setLocalLesson] = useState("all")
   const [starredWords, setStarredWords] = useState<number[]>(
     vocabulary.filter(v => v.starred).map(v => v.id)
   )
+
+  const lessonValue = selectedLesson ?? localLesson
+  const handleLessonValueChange = onLessonChange ?? setLocalLesson
 
   const filteredVocab = vocabulary.filter((word) => {
     const matchesSearch =
@@ -339,7 +347,7 @@ export function VocabTab() {
       word.english.toLowerCase().includes(searchQuery.toLowerCase()) ||
       word.note?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = activeCategory === "all" || word.category === activeCategory
-    const lessonMatch = selectedLesson === "all" || lessonByCategory[word.category] === selectedLesson
+    const lessonMatch = lessonValue === "all" || lessonByCategory[word.category] === lessonValue
     return matchesSearch && matchesCategory && lessonMatch
   })
 
@@ -441,7 +449,7 @@ export function VocabTab() {
                 </Button>
               ))}
               </div>
-              <Select value={selectedLesson} onValueChange={setSelectedLesson}>
+              <Select value={lessonValue} onValueChange={handleLessonValueChange}>
                 <SelectTrigger className="w-full md:w-[260px]">
                   <SelectValue placeholder="Select lesson" />
                 </SelectTrigger>

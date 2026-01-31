@@ -83,7 +83,7 @@ const exercises = {
       answer: "feminine (die)", 
       options: ["masculine (der)", "feminine (die)", "neuter (das)", "varies"],
       hint: "die Zeitung, die Übung",
-      lessonId: "nouns-basic",
+      lessonId: "articles-gender",
     },
     { 
       id: 7, 
@@ -217,9 +217,14 @@ const exerciseTypes = [
   },
 ]
 
-export function TrainTab() {
+interface TrainTabProps {
+  selectedLesson?: string
+  onLessonChange?: (lessonId: string) => void
+}
+
+export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
   const [selectedType, setSelectedType] = useState<ExerciseType>(null)
-  const [selectedLesson, setSelectedLesson] = useState("all")
+  const [localLesson, setLocalLesson] = useState("all")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState("")
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
@@ -227,15 +232,18 @@ export function TrainTab() {
   const [isCorrect, setIsCorrect] = useState(false)
   const [score, setScore] = useState({ correct: 0, total: 0 })
 
+  const lessonValue = selectedLesson ?? localLesson
+  const handleLessonValueChange = onLessonChange ?? setLocalLesson
+
   const lessonCounts = useMemo(() => {
     return exerciseTypes.reduce<Record<string, number>>((acc, type) => {
       const items = exercises[type.id]
-      acc[type.id] = selectedLesson === "all"
+      acc[type.id] = lessonValue === "all"
         ? items.length
-        : items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === selectedLesson).length
+        : items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === lessonValue).length
       return acc
     }, {})
-  }, [selectedLesson])
+  }, [lessonValue])
 
   const filteredExercises = useMemo(() => {
     if (!selectedType) {
@@ -243,19 +251,19 @@ export function TrainTab() {
     }
 
     const items = exercises[selectedType]
-    if (selectedLesson === "all") {
+    if (lessonValue === "all") {
       return items
     }
 
-    return items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === selectedLesson)
-  }, [selectedLesson, selectedType])
+    return items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === lessonValue)
+  }, [lessonValue, selectedType])
 
   const currentExercises = filteredExercises
   const currentExercise = currentExercises[currentIndex]
   const isLastExercise = currentIndex === currentExercises.length - 1
 
   const handleLessonChange = (value: string) => {
-    setSelectedLesson(value)
+    handleLessonValueChange(value)
     setCurrentIndex(0)
     setUserAnswer("")
     setSelectedOption(null)
@@ -328,7 +336,7 @@ export function TrainTab() {
                 <p className="font-semibold">Lesson Filter</p>
                 <p className="text-sm text-muted-foreground">Choose a lesson or practice everything.</p>
               </div>
-              <Select value={selectedLesson} onValueChange={handleLessonChange}>
+              <Select value={lessonValue} onValueChange={handleLessonChange}>
                 <SelectTrigger className="w-full md:w-[320px]">
                   <SelectValue placeholder="Select lesson" />
                 </SelectTrigger>
@@ -417,7 +425,7 @@ export function TrainTab() {
             <p className="text-muted-foreground">
               Try a different lesson or switch back to All Lessons.
             </p>
-            <Select value={selectedLesson} onValueChange={handleLessonChange}>
+            <Select value={lessonValue} onValueChange={handleLessonChange}>
               <SelectTrigger className="w-full max-w-sm mx-auto">
                 <SelectValue placeholder="Select lesson" />
               </SelectTrigger>
