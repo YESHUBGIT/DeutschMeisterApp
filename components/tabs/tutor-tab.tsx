@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,28 +23,10 @@ export function TutorTab() {
   const [input, setInput] = useState("")
   const [isSending, setIsSending] = useState(false)
 
-  const [tutorApi, setTutorApi] = useState("")
-
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const response = await fetch("/api/tutor/config")
-        if (!response.ok) {
-          return
-        }
-        const data = await response.json()
-        setTutorApi(data.apiUrl ?? "")
-      } catch {
-        setTutorApi("")
-      }
-    }
-
-    void loadConfig()
-  }, [])
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed || !tutorApi) {
+    if (!trimmed) {
       return
     }
 
@@ -54,17 +36,10 @@ export function TutorTab() {
     setInput("")
 
     try {
-      const tokenRes = await fetch("/api/tutor/token")
-      if (!tokenRes.ok) {
-        throw new Error("Failed to fetch tutor token")
-      }
-      const { token } = await tokenRes.json()
-
-      const response = await fetch(`${tutorApi}/chat`, {
+      const response = await fetch("/api/tutor/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ messages: nextMessages }),
       })
@@ -156,18 +131,13 @@ export function TutorTab() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Write a message in English or German"
-              disabled={isSending || !tutorApi}
+              disabled={isSending}
             />
-            <Button type="submit" disabled={isSending || !tutorApi} className="gap-2">
+            <Button type="submit" disabled={isSending} className="gap-2">
               <SendHorizontal className="h-4 w-4" />
               Send
             </Button>
           </form>
-          {!tutorApi && (
-            <p className="text-xs text-muted-foreground">
-              Set NEXT_PUBLIC_TUTOR_API_URL to enable the tutor.
-            </p>
-          )}
         </CardContent>
       </Card>
     </div>
