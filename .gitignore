@@ -11,3 +11,4 @@ node_modules
 certbot
 postgres_data
 GitHub_login_token.txt
+ai-server

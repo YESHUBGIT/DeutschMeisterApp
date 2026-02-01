@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,7 +23,24 @@ export function TutorTab() {
   const [input, setInput] = useState("")
   const [isSending, setIsSending] = useState(false)
 
-  const tutorApi = useMemo(() => process.env.NEXT_PUBLIC_TUTOR_API_URL ?? "", [])
+  const [tutorApi, setTutorApi] = useState("")
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const response = await fetch("/api/tutor/config")
+        if (!response.ok) {
+          return
+        }
+        const data = await response.json()
+        setTutorApi(data.apiUrl ?? "")
+      } catch {
+        setTutorApi("")
+      }
+    }
+
+    void loadConfig()
+  }, [])
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim()
