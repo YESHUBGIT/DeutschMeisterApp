@@ -8,10 +8,10 @@ import { VocabTab } from "@/components/tabs/vocab-tab"
 import { CardsTab } from "@/components/tabs/cards-tab"
 import { CoreTab } from "@/components/tabs/core-tab"
 import { CheatTab } from "@/components/tabs/cheat-tab"
-import { ConversationTab } from "@/components/tabs/conversation-tab"
 import { VerbConjugationsTab } from "@/components/tabs/verb-conjugations-tab"
+import { TutorTab } from "@/components/tabs/tutor-tab"
 
-export type TabType = "lessons" | "train" | "vocab" | "conjugations" | "conversation" | "cards" | "core" | "cheat"
+export type TabType = "lessons" | "train" | "vocab" | "conjugations" | "tutor" | "cards" | "core" | "cheat"
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>("lessons")
@@ -39,8 +39,8 @@ export default function Home() {
         return <VocabTab selectedLesson={lessonFilter} onLessonChange={setLessonFilter} />
       case "conjugations":
         return <VerbConjugationsTab />
-      case "conversation":
-        return <ConversationTab />
+      case "tutor":
+        return <TutorTab />
       case "cards":
         return <CardsTab selectedLesson={lessonFilter} onLessonChange={setLessonFilter} />
       case "core":

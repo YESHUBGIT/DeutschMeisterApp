@@ -8,7 +8,7 @@ handles authentication.
 ## DNS and Cognito
 
 - Point `thecloudtitan.de` and `www.thecloudtitan.de` to the server IP
-  `18.156.6.68` in GoDaddy.
+  `3.94.163.196` in GoDaddy.
 - In Cognito, set callback URL:
   - `https://thecloudtitan.de/api/auth/callback/cognito`
 - Set sign-out URL (optional):
@@ -23,13 +23,13 @@ Required:
 - `NEXTAUTH_SECRET=...`
 - `COGNITO_CLIENT_ID=...`
 - `COGNITO_CLIENT_SECRET=...`
-- `COGNITO_ISSUER=https://cognito-idp.eu-central-1.amazonaws.com/hfvyy5`
+- `COGNITO_ISSUER=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_NLWDaRRCx`
 - `POSTGRES_PASSWORD=...`
 
 ## Start
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 ## GitHub Actions (Docker Hub)

@@ -17,7 +17,7 @@ const tabs = [
   { id: "train" as const, label: "Train", icon: Brain },
   { id: "vocab" as const, label: "Vocab", icon: BookText },
   { id: "conjugations" as const, label: "Conjugations", icon: Table },
-  { id: "conversation" as const, label: "Conversation", icon: MessageCircle },
+  { id: "tutor" as const, label: "Tutor", icon: MessageCircle },
   { id: "cards" as const, label: "Cards", icon: Layers },
   { id: "core" as const, label: "Core", icon: Target },
   { id: "cheat" as const, label: "Cheat", icon: Zap },

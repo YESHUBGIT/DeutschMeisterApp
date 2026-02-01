@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "jose": "^5.10.0",
     "@auth/prisma-adapter": "^2.11.1",
     "@hookform/resolvers": "^3.10.0",
     "@prisma/client": "^6.6.0",
