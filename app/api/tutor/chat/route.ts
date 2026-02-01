@@ -22,6 +22,14 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
+  const systemMessage = {
+    role: "system",
+    content: "Explain in English, keep German terms and example sentences in German. Be friendly, natural, and concise. Ask one short follow-up question each turn.",
+  }
+  const payload = {
+    ...body,
+    messages: [systemMessage, ...(body.messages ?? [])],
+  }
   const subject = session?.user?.email ?? session?.user?.name ?? "dev"
   const key = new TextEncoder().encode(secret)
   const token = await new SignJWT({ role: "student" })
@@ -37,7 +45,7 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   })
 
   if (!response.ok) {
