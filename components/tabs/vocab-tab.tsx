@@ -1266,25 +1266,25 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Header */}
       <div className="text-center space-y-4 py-6">
         <h1 className="text-4xl font-bold text-foreground">Vocabulary</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Words organized by the lessons - verbs, tenses, passive voice, modal verbs, and more
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
+        <div className="grid w-full max-w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center">
+          <span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">{vocabulary.length}</span>
-            Total Words
+            <span className="break-words">Total Words</span>
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
+          <span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">{domainOptions.length}</span>
-            Learning Hooks
+            <span className="break-words">Learning Hooks</span>
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
+          <span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">{starredWords.length}</span>
-            Starred
+            <span className="break-words">Starred</span>
             {starredWords.length > 0 && (
               <Button
                 variant="ghost"
@@ -1296,11 +1296,11 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
               </Button>
             )}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
+          <span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">
               {Object.values(statusById).filter(status => status === "again").length}
             </span>
-            Learn again
+            <span className="break-words">Learn again</span>
             {Object.values(statusById).some(status => status === "again") && (
               <Button
                 variant="ghost"
@@ -1312,11 +1312,11 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
               </Button>
             )}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
+          <span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">
               {Object.values(statusById).filter(status => status === "learning").length}
             </span>
-            Learning
+            <span className="break-words">Learning</span>
             {Object.values(statusById).some(status => status === "learning") && (
               <Button
                 variant="ghost"
@@ -1328,11 +1328,11 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
               </Button>
             )}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
+          <span className="inline-flex max-w-full flex-wrap items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">
               {Object.values(statusById).filter(status => status === "easy").length}
             </span>
-            Easy
+            <span className="break-words">Easy</span>
             {Object.values(statusById).some(status => status === "easy") && (
               <Button
                 variant="ghost"
@@ -1346,17 +1346,17 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
           </span>
         </div>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr_360px] lg:items-start">
-        <div className="space-y-4">
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr_360px] lg:items-start w-full min-w-0">
+        <div className="space-y-4 w-full min-w-0">
           <div ref={filtersRef}>
-            <Card>
-              <CardHeader className="pb-2">
+            <Card className="w-full max-w-full min-w-0 overflow-hidden">
+              <CardHeader className="pb-2 min-w-0">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Filter className="w-4 h-4 text-muted-foreground" />
                   Filters
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                   <Input
@@ -1465,7 +1465,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
                                 : [...prev, domain]
                             )
                           }}
-                          className="h-auto whitespace-normal text-left leading-snug break-words"
+                          className="h-auto max-w-full whitespace-normal text-left leading-snug break-words"
                         >
                           {domain}
                         </Button>
@@ -1533,10 +1533,10 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
         </div>
 
         <Card
-          className="flex flex-col min-h-0"
+          className="flex flex-col min-h-0 w-full max-w-full min-w-0 overflow-hidden"
           style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
         >
-          <CardHeader>
+          <CardHeader className="min-w-0">
             <CardTitle className="flex items-center justify-between">
               <span>Word List</span>
               <span className="text-sm font-normal text-muted-foreground">
@@ -1544,7 +1544,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto pr-2 min-h-0">
+          <CardContent className="flex-1 overflow-y-auto pr-2 min-h-0 w-full max-w-full min-w-0">
             <div className="space-y-2">
               {filteredVocab.map((word) => {
                 const status = statusById[word.id] ?? "new"
@@ -1704,11 +1704,11 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
           </CardContent>
         </Card>
 
-        <Card className="hidden lg:flex lg:h-[calc(100vh-240px)] flex-col">
+        <Card className="hidden lg:flex lg:h-[calc(100vh-240px)] flex-col w-full max-w-full min-w-0">
           <CardHeader>
             <CardTitle>Word Details</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
+          <CardContent className="flex-1 overflow-y-auto w-full max-w-full">
             {selectedWord ? renderWordDetails(selectedWord) : (
               <p className="text-sm text-muted-foreground">No word selected.</p>
             )}
