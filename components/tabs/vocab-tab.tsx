@@ -1282,21 +1282,21 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
             <span className="font-semibold text-foreground">{domainOptions.length}</span>
             Learning Hooks
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
             <span className="font-semibold text-foreground">{starredWords.length}</span>
             Starred
             {starredWords.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-auto px-2 py-0 text-xs text-red-600 hover:text-red-600"
+                className="h-auto px-2 py-0 text-xs text-red-600 hover:text-red-600 whitespace-nowrap"
                 onClick={clearStarred}
               >
                 Clear
               </Button>
             )}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
             <span className="font-semibold text-foreground">
               {Object.values(statusById).filter(status => status === "again").length}
             </span>
@@ -1312,7 +1312,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
               </Button>
             )}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
             <span className="font-semibold text-foreground">
               {Object.values(statusById).filter(status => status === "learning").length}
             </span>
@@ -1328,7 +1328,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
               </Button>
             )}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-sm text-muted-foreground flex-wrap">
             <span className="font-semibold text-foreground">
               {Object.values(statusById).filter(status => status === "easy").length}
             </span>
@@ -1373,27 +1373,27 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Word status</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: "all", label: "All" },
-                      { value: "starred", label: "Starred" },
-                      { value: "again", label: "Learn again" },
-                      { value: "learning", label: "Learning" },
-                      { value: "easy", label: "Easy" },
-                    ].map(option => (
-                      <Button
-                        key={option.value}
-                        variant={statusFilter === option.value ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setStatusFilter(option.value as "all" | WordStatus)}
-                        className="justify-start"
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
-                  </div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Word status</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "all", label: "All" },
+                    { value: "starred", label: "Starred" },
+                    { value: "again", label: "Learn again" },
+                    { value: "learning", label: "Learning" },
+                    { value: "easy", label: "Easy" },
+                  ].map(option => (
+                    <Button
+                      key={option.value}
+                      variant={statusFilter === option.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setStatusFilter(option.value as "all" | WordStatus)}
+                      className="justify-start whitespace-normal text-left"
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
                 </div>
+              </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Level</p>
