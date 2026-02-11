@@ -1465,6 +1465,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
                                 : [...prev, domain]
                             )
                           }}
+                          className="h-auto whitespace-normal text-left leading-snug break-words"
                         >
                           {domain}
                         </Button>
