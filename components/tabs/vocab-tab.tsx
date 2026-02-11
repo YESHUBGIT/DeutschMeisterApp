@@ -791,6 +791,16 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     if (typeof window === "undefined") return
     const element = filtersRef.current
     if (!element || typeof ResizeObserver === "undefined") return
+    const mediaQuery = window.matchMedia("(min-width: 1024px)")
+    const handleMediaChange = (event: MediaQueryListEvent) => {
+      if (!event.matches) {
+        setListMaxHeight(null)
+      }
+    }
+    if (!mediaQuery.matches) {
+      setListMaxHeight(null)
+      return
+    }
     const updateHeight = (height: number) => {
       setListMaxHeight(Math.max(0, Math.round(height)))
     }
@@ -802,7 +812,11 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
       }
     })
     observer.observe(element)
-    return () => observer.disconnect()
+    mediaQuery.addEventListener("change", handleMediaChange)
+    return () => {
+      observer.disconnect()
+      mediaQuery.removeEventListener("change", handleMediaChange)
+    }
   }, [])
 
   useEffect(() => {
