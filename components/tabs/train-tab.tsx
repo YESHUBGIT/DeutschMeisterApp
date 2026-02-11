@@ -476,8 +476,8 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Question */}
-          <div className="text-center p-6 bg-secondary rounded-lg">
-            <p className="text-2xl font-bold text-foreground">
+          <div className="text-center p-5 sm:p-6 bg-secondary rounded-lg">
+            <p className="text-lg sm:text-2xl font-bold text-foreground break-words">
               {selectedType === "translation" && (currentExercise as typeof exercises.translation[0]).german}
               {selectedType === "fillBlank" && (currentExercise as typeof exercises.fillBlank[0]).sentence}
               {(selectedType === "multipleChoice" || selectedType === "verbPosition") && (currentExercise as typeof exercises.multipleChoice[0]).question}
@@ -500,7 +500,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
 
           {/* Options */}
           {(selectedType === "fillBlank" || selectedType === "multipleChoice" || selectedType === "verbPosition") && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(currentExercise as typeof exercises.fillBlank[0]).options.map((option) => (
                 <Button
                   key={option}
@@ -508,7 +508,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
                   onClick={() => !showResult && setSelectedOption(option)}
                   disabled={showResult}
                   className={cn(
-                    "h-auto py-4 text-base",
+                    "h-auto py-3 px-4 text-sm sm:text-base whitespace-normal break-words leading-snug",
                     showResult && option === (currentExercise as typeof exercises.fillBlank[0]).answer && "bg-green-500 hover:bg-green-500 text-white",
                     showResult && selectedOption === option && option !== (currentExercise as typeof exercises.fillBlank[0]).answer && "bg-red-500 hover:bg-red-500 text-white"
                   )}
