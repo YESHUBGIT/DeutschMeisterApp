@@ -41,3 +41,4 @@ jobs:
             cd /opt/deutschmeister
             docker pull yeshdock/deutschmeister:latest
             docker compose up -d
+            docker image prune -f

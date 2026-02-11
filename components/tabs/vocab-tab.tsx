@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Check, Filter, RotateCcw, Search, Star, Volume2, BookOpen, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -774,6 +775,8 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     vocabulary.filter(v => v.starred).map(v => v.id)
   )
   const filtersRef = useRef<HTMLDivElement | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const lessonValue = selectedLesson ?? localLesson
   const handleLessonValueChange = onLessonChange ?? setLocalLesson
@@ -786,6 +789,21 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mediaQuery = window.matchMedia("(max-width: 1023px)")
+    const updateMobile = () => setIsMobile(mediaQuery.matches)
+    updateMobile()
+    mediaQuery.addEventListener("change", updateMobile)
+    return () => mediaQuery.removeEventListener("change", updateMobile)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) {
+      setDetailsOpen(false)
+    }
+  }, [isMobile])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -1054,6 +1072,166 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
   }, [])
 
   const selectedWord = filteredVocab.find(word => word.id === selectedWordId) ?? null
+
+  const renderWordDetails = (word: (typeof vocabulary)[number]) => (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-2xl font-semibold text-foreground">{word.german}</p>
+            <p className="text-sm text-muted-foreground">{word.english}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => {
+              const text = getSpeechText(word)
+              if (!text) return
+              speakText(`word-${word.id}`, text)
+            }}
+            disabled={!speechSupported}
+            title={speechSupported ? "Speak word" : "Speech not supported"}
+          >
+            <Volume2
+              className={cn(
+                "w-4 h-4",
+                speakingKey === `word-${word.id}` ? "text-primary" : "text-muted-foreground"
+              )}
+            />
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+            {partOfSpeechByCategory[word.category] ?? "Other"}
+          </span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+            {word.level ?? levelByCategory[word.category] ?? "None"}
+          </span>
+          {getHooksForWord(word).cognate && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+              {getHooksForWord(word).cognate === "direct"
+                ? "Direct cognate"
+                : getHooksForWord(word).cognate === "near"
+                  ? "Near-cognate"
+                  : getHooksForWord(word).cognate === "false"
+                    ? "False friend"
+                    : "No-cognate"}
+            </span>
+          )}
+          {getHooksForWord(word).frequency && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+              {getHooksForWord(word).frequency === "core"
+                ? "Core"
+                : getHooksForWord(word).frequency === "booster"
+                  ? "Booster"
+                  : "Specialist"}
+            </span>
+          )}
+          <span className={cn(
+            "text-xs px-2 py-0.5 rounded-full",
+            getStatusStyles(statusById[word.id] ?? "new")
+          )}>
+            {getStatusLabel(statusById[word.id] ?? "new")}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-foreground">Set status</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-rose-200 bg-rose-50 text-rose-700 hover:text-rose-700 hover:border-rose-200 hover:bg-rose-100"
+            onClick={() => setStatus(word.id, "again")}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Learn again
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-yellow-300 bg-yellow-50 text-yellow-700 hover:text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100"
+            onClick={() => setStatus(word.id, "learning")}
+          >
+            <BookOpen className="h-4 w-4" />
+            Learning
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-emerald-200 bg-emerald-50 text-emerald-700 hover:text-emerald-700 hover:border-emerald-200 hover:bg-emerald-100"
+            onClick={() => setStatus(word.id, "easy")}
+          >
+            <Check className="h-4 w-4" />
+            Easy
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-foreground">Notes</p>
+        <p className="text-sm text-muted-foreground">
+          {word.note || "No notes for this word yet."}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-foreground">Learning hooks</p>
+        {getHooksForWord(word).domains.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {getHooksForWord(word).domains.map((domain) => (
+              <span key={domain} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                {domain}
+              </span>
+            ))}
+            {getHooksForWord(word).confusables?.map((confusable) => (
+              <span key={confusable} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                {confusable}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No learning hooks tagged yet.</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-foreground">Example sentence</p>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => {
+              const example = getExample(word)
+              if (!example) return
+              speakText(`example-${word.id}`, example)
+            }}
+            disabled={!speechSupported || !getExample(word)}
+            title={
+              speechSupported
+                ? "Speak example"
+                : "Speech not supported"
+            }
+          >
+            <Volume2
+              className={cn(
+                "w-4 h-4",
+                speakingKey === `example-${word.id}` ? "text-primary" : "text-muted-foreground"
+              )}
+            />
+          </Button>
+        </div>
+        {getExample(word) ? (
+          <p className="text-sm text-foreground">{getExample(word)}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">No example sentence yet.</p>
+        )}
+      </div>
+    </div>
+  )
 
   const getArticleColor = (article: string | null) => {
     switch (article) {
@@ -1378,7 +1556,12 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
                     key={word.id}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedWordId(word.id)}
+                    onClick={() => {
+                      setSelectedWordId(word.id)
+                      if (isMobile) {
+                        setDetailsOpen(true)
+                      }
+                    }}
                     className={cn(
                       "flex items-start justify-between gap-3 p-4 rounded-lg bg-secondary transition-colors",
                       selectedWordId === word.id ? "ring-2 ring-primary/30" : "hover:bg-secondary/80"
@@ -1520,175 +1703,29 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
           </CardContent>
         </Card>
 
-        <Card className="lg:h-[calc(100vh-240px)] flex flex-col">
+        <Card className="hidden lg:flex lg:h-[calc(100vh-240px)] flex-col">
           <CardHeader>
             <CardTitle>Word Details</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto">
-            {selectedWord ? (
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-2xl font-semibold text-foreground">{selectedWord.german}</p>
-                      <p className="text-sm text-muted-foreground">{selectedWord.english}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9"
-                      onClick={() => {
-                        const text = getSpeechText(selectedWord)
-                        if (!text) return
-                        speakText(`word-${selectedWord.id}`, text)
-                      }}
-                      disabled={!speechSupported}
-                      title={speechSupported ? "Speak word" : "Speech not supported"}
-                    >
-                      <Volume2
-                        className={cn(
-                          "w-4 h-4",
-                          speakingKey === `word-${selectedWord.id}` ? "text-primary" : "text-muted-foreground"
-                        )}
-                      />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                      {partOfSpeechByCategory[selectedWord.category] ?? "Other"}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                      {selectedWord.level ?? levelByCategory[selectedWord.category] ?? "None"}
-                    </span>
-                    {getHooksForWord(selectedWord).cognate && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                        {getHooksForWord(selectedWord).cognate === "direct"
-                          ? "Direct cognate"
-                          : getHooksForWord(selectedWord).cognate === "near"
-                            ? "Near-cognate"
-                            : getHooksForWord(selectedWord).cognate === "false"
-                              ? "False friend"
-                              : "No-cognate"}
-                      </span>
-                    )}
-                    {getHooksForWord(selectedWord).frequency && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                        {getHooksForWord(selectedWord).frequency === "core"
-                          ? "Core"
-                          : getHooksForWord(selectedWord).frequency === "booster"
-                            ? "Booster"
-                            : "Specialist"}
-                      </span>
-                    )}
-                    <span className={cn(
-                      "text-xs px-2 py-0.5 rounded-full",
-                      getStatusStyles(statusById[selectedWord.id] ?? "new")
-                    )}>
-                      {getStatusLabel(statusById[selectedWord.id] ?? "new")}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-foreground">Set status</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 border-rose-200 bg-rose-50 text-rose-700 hover:text-rose-700 hover:border-rose-200 hover:bg-rose-100"
-                      onClick={() => setStatus(selectedWord.id, "again")}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Learn again
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 border-yellow-300 bg-yellow-50 text-yellow-700 hover:text-yellow-700 hover:border-yellow-300 hover:bg-yellow-100"
-                      onClick={() => setStatus(selectedWord.id, "learning")}
-                    >
-                      <BookOpen className="h-4 w-4" />
-                      Learning
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 border-emerald-200 bg-emerald-50 text-emerald-700 hover:text-emerald-700 hover:border-emerald-200 hover:bg-emerald-100"
-                      onClick={() => setStatus(selectedWord.id, "easy")}
-                    >
-                      <Check className="h-4 w-4" />
-                      Easy
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-foreground">Notes</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedWord.note || "No notes for this word yet."}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-foreground">Learning hooks</p>
-                  {getHooksForWord(selectedWord).domains.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {getHooksForWord(selectedWord).domains.map((domain) => (
-                        <span key={domain} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                          {domain}
-                        </span>
-                      ))}
-                      {getHooksForWord(selectedWord).confusables?.map((confusable) => (
-                        <span key={confusable} className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                          {confusable}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No learning hooks tagged yet.</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-foreground">Example sentence</p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        const example = getExample(selectedWord)
-                        if (!example) return
-                        speakText(`example-${selectedWord.id}`, example)
-                      }}
-                      disabled={!speechSupported || !getExample(selectedWord)}
-                      title={
-                        speechSupported
-                          ? "Speak example"
-                          : "Speech not supported"
-                      }
-                    >
-                      <Volume2
-                        className={cn(
-                          "w-4 h-4",
-                          speakingKey === `example-${selectedWord.id}` ? "text-primary" : "text-muted-foreground"
-                        )}
-                      />
-                    </Button>
-                  </div>
-                  {getExample(selectedWord) ? (
-                    <p className="text-sm text-foreground">{getExample(selectedWord)}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No example sentence yet.</p>
-                  )}
-                </div>
-              </div>
-            ) : (
+            {selectedWord ? renderWordDetails(selectedWord) : (
               <p className="text-sm text-muted-foreground">No word selected.</p>
             )}
           </CardContent>
         </Card>
       </div>
+      <Sheet open={detailsOpen && !!selectedWord} onOpenChange={setDetailsOpen}>
+        <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Word Details</SheetTitle>
+          </SheetHeader>
+          <div className="px-4 pb-6">
+            {selectedWord ? renderWordDetails(selectedWord) : (
+              <p className="text-sm text-muted-foreground">No word selected.</p>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
