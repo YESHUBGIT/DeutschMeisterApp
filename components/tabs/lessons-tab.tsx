@@ -1093,6 +1093,38 @@ const casesTree = {
 // Regular lessons (non-verb)
 const regularLessons = [
   {
+    id: 100,
+    lessonId: "capitalization-punctuation",
+    title: "Capitalization & Punctuation",
+    description: "Learn how German capitalization and commas change meaning",
+    level: "Beginner",
+    duration: "8 min",
+    content: {
+      concept: "German spelling rules are very consistent. Nouns are always capitalized, sentence starts are capitalized, and commas signal clause boundaries that change word order.",
+      keyPoints: [
+        "All nouns are capitalized: der Hund, die Schule, das Buch",
+        "Start of a sentence is capitalized: Heute lerne ich",
+        "Formal you (Sie/Ihr) is always capitalized",
+        "Ich/du/er are NOT capitalized unless at sentence start",
+        "Commas separate clauses: because/that/if clauses use a comma",
+      ],
+      table: {
+        headers: ["Rule", "German", "English"],
+        rows: [
+          ["Noun capitalization", "Ich sehe den Hund.", "I see the dog."],
+          ["Sentence start", "Heute lerne ich.", "Today I study."],
+          ["Formal you", "Wie heißen Sie?", "What is your name?"],
+          ["Comma + subordinate", "Ich bleibe, weil ich muede bin.", "I stay because I am tired."],
+        ],
+      },
+      examples: [
+        { german: "Der Mann liest das Buch.", english: "The man reads the book." },
+        { german: "Wenn es regnet, bleibe ich zu Hause.", english: "If it rains, I stay at home." },
+      ],
+      tip: "If you can put 'the' in front of it in English, it is probably a noun and should be capitalized in German.",
+    },
+  },
+  {
     id: 101,
     lessonId: "personal-pronouns",
     title: "Personal Pronouns (Personalpronomen)",

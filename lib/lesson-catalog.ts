@@ -5,6 +5,7 @@ export type LessonCatalogItem = {
 }
 
 export const lessonCatalog: LessonCatalogItem[] = [
+  { id: "capitalization-punctuation", title: "Capitalization & Punctuation", group: "Foundations" },
   { id: "personal-pronouns", title: "Personal Pronouns (Personalpronomen)", group: "Foundations" },
   { id: "possessive-articles", title: "Possessive Articles (Possessivartikel)", group: "Foundations" },
   { id: "articles-gender", title: "Articles & Gender", group: "Foundations" },
