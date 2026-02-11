@@ -230,6 +230,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
+  const [showHint, setShowHint] = useState(false)
   const [score, setScore] = useState({ correct: 0, total: 0 })
 
   const lessonValue = selectedLesson ?? localLesson
@@ -269,6 +270,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
     setSelectedOption(null)
     setShowResult(false)
     setIsCorrect(false)
+    setShowHint(false)
   }
 
   const handleSelectType = (type: ExerciseType) => {
@@ -278,6 +280,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
     setSelectedOption(null)
     setShowResult(false)
     setIsCorrect(false)
+    setShowHint(false)
   }
 
   const checkAnswer = () => {
@@ -307,6 +310,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
     setUserAnswer("")
     setSelectedOption(null)
     setShowResult(false)
+    setShowHint(false)
   }
 
   const resetExercise = () => {
@@ -316,6 +320,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
     setSelectedOption(null)
     setShowResult(false)
     setScore({ correct: 0, total: 0 })
+    setShowHint(false)
   }
 
   // Exercise Selection Screen
@@ -483,7 +488,18 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
               {(selectedType === "multipleChoice" || selectedType === "verbPosition") && (currentExercise as typeof exercises.multipleChoice[0]).question}
             </p>
             {"hint" in currentExercise && (
-              <p className="text-sm text-muted-foreground mt-2">Hint: {currentExercise.hint}</p>
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHint((prev) => !prev)}
+                >
+                  {showHint ? "Hide hint" : "Show hint"}
+                </Button>
+                {showHint && (
+                  <p className="text-sm text-muted-foreground">Hint: {currentExercise.hint}</p>
+                )}
+              </div>
             )}
           </div>
 
