@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -771,12 +772,12 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
   const [confusableFilter, setConfusableFilter] = useState("all")
   const [statusById, setStatusById] = useState<Record<number, WordStatus>>({})
   const [listMaxHeight, setListMaxHeight] = useState<number | null>(null)
-  const [starredWords, setStarredWords] = useState<number[]>(
-    vocabulary.filter(v => v.starred).map(v => v.id)
-  )
+  const [starredWords, setStarredWords] = useState<number[]>([])
   const filtersRef = useRef<HTMLDivElement | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [hasLoadedProgress, setHasLoadedProgress] = useState(false)
+  const { status: authStatus, data: session } = useSession()
 
   const lessonValue = selectedLesson ?? localLesson
   const handleLessonValueChange = onLessonChange ?? setLocalLesson
@@ -839,6 +840,32 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    if (authStatus === "authenticated") {
+      const fetchProgress = async () => {
+        try {
+          const response = await fetch("/api/vocab/progress")
+          if (!response.ok) return
+          const data = await response.json()
+          const nextStatus: Record<number, WordStatus> = {}
+          const nextStarred: number[] = []
+          data.entries.forEach((entry: { wordId: number; status: WordStatus; starred: boolean }) => {
+            if (entry.status && entry.status !== "new") {
+              nextStatus[entry.wordId] = entry.status
+            }
+            if (entry.starred) {
+              nextStarred.push(entry.wordId)
+            }
+          })
+          setStatusById(nextStatus)
+          setStarredWords(nextStarred)
+          setHasLoadedProgress(true)
+        } catch (error) {
+          console.error("Failed to load vocab progress", error)
+        }
+      }
+      fetchProgress()
+      return
+    }
     try {
       const storedStatus = window.localStorage.getItem("vocabStatus")
       const storedStars = window.localStorage.getItem("vocabStars")
@@ -851,28 +878,45 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
           setStarredWords(parsedStars)
         }
       }
+      setHasLoadedProgress(true)
     } catch (error) {
       console.error("Failed to load vocab data", error)
     }
-  }, [])
+  }, [authStatus, session?.user?.email])
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-    try {
-      window.localStorage.setItem("vocabStatus", JSON.stringify(statusById))
-    } catch (error) {
-      console.error("Failed to save vocab status", error)
+    if (typeof window === "undefined" || !hasLoadedProgress) return
+    if (authStatus !== "authenticated") {
+      try {
+        window.localStorage.setItem("vocabStatus", JSON.stringify(statusById))
+        window.localStorage.setItem("vocabStars", JSON.stringify(starredWords))
+      } catch (error) {
+        console.error("Failed to save vocab data", error)
+      }
+      return
     }
-  }, [statusById])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    try {
-      window.localStorage.setItem("vocabStars", JSON.stringify(starredWords))
-    } catch (error) {
-      console.error("Failed to save vocab stars", error)
+    const payload = {
+      entries: vocabulary
+        .filter(word => starredWords.includes(word.id) || (statusById[word.id] && statusById[word.id] !== "new"))
+        .map(word => ({
+          wordId: word.id,
+          status: statusById[word.id] ?? "new",
+          starred: starredWords.includes(word.id),
+        })),
     }
-  }, [starredWords])
+    const timeout = window.setTimeout(async () => {
+      try {
+        await fetch("/api/vocab/progress", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      } catch (error) {
+        console.error("Failed to save vocab progress", error)
+      }
+    }, 600)
+    return () => window.clearTimeout(timeout)
+  }, [statusById, starredWords, authStatus, hasLoadedProgress])
 
   const toggleStar = (id: number) => {
     setStarredWords(prev => 
@@ -1568,134 +1612,270 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
                       selectedWordId === word.id ? "ring-2 ring-primary/30" : "hover:bg-secondary/80"
                     )}
                   >
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
-                      {word.article ? (
-                        <span className={cn("px-2 py-1 rounded text-xs font-medium shrink-0", getArticleColor(word.article))}>
-                          {word.article}
-                        </span>
-                      ) : (
-                        <span className={cn("px-2 py-1 rounded text-xs font-medium shrink-0", getCategoryColor(word.category))}>
-                          {categories.find(c => c.id === word.category)?.label.split(" ")[0]}
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-foreground truncate">{word.german}</p>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
-                            {partOfSpeech}
-                          </span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
-                            {level}
-                          </span>
-                          {hooks.cognate && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
-                              {hooks.cognate === "direct"
-                                ? "Direct cognate"
-                                : hooks.cognate === "near"
-                                  ? "Near-cognate"
-                                  : hooks.cognate === "false"
-                                    ? "False friend"
-                                    : "No-cognate"}
-                            </span>
-                          )}
-                          {hooks.frequency && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
-                              {hooks.frequency === "core"
-                                ? "Core"
-                                : hooks.frequency === "booster"
-                                  ? "Booster"
-                                  : "Specialist"}
-                            </span>
-                          )}
-                          <span className={cn("text-xs px-2 py-0.5 rounded-full", getStatusStyles(status))}>
-                            {getStatusLabel(status)}
-                          </span>
+                    <div className="w-full">
+                      <div className="sm:hidden space-y-2">
+                        <p className="text-base font-semibold text-foreground break-words">{word.german}</p>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              const speechText = getSpeechText(word)
+                              if (!speechText) return
+                              speakText(speakKey, speechText)
+                            }}
+                            disabled={!speechSupported}
+                            title={
+                              speechSupported
+                                ? `Speak ${getSpeechText(word)}`
+                                : "Speech not supported"
+                            }
+                          >
+                            <Volume2
+                              className={cn(
+                                "w-4 h-4",
+                                speakingKey === speakKey ? "text-primary" : "text-muted-foreground"
+                              )}
+                            />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setStatus(word.id, "again")
+                            }}
+                            title="Learn again"
+                          >
+                            <RotateCcw className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setStatus(word.id, "learning")
+                            }}
+                            title="Learning"
+                          >
+                            <BookOpen className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setStatus(word.id, "easy")
+                            }}
+                            title="Easy"
+                          >
+                            <Check className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              toggleStar(word.id)
+                            }}
+                          >
+                            <Star
+                              className={cn(
+                                "w-4 h-4",
+                                starredWords.includes(word.id)
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-muted-foreground"
+                              )}
+                            />
+                          </Button>
                         </div>
                         <p className="text-sm text-muted-foreground">{word.english}</p>
                         {word.note && (
-                          <p className="text-xs text-primary mt-1">{word.note}</p>
+                          <p className="text-xs text-primary">{word.note}</p>
                         )}
+                        <div className="space-y-2">
+                          <div className="flex w-full flex-nowrap items-center gap-2">
+                            {word.article ? (
+                              <span className={cn("px-2 py-0.5 rounded text-xs font-medium", getArticleColor(word.article))}>
+                                {word.article}
+                              </span>
+                            ) : (
+                              <span className={cn("px-2 py-0.5 rounded text-xs font-medium", getCategoryColor(word.category))}>
+                                {categories.find(c => c.id === word.category)?.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex w-full flex-wrap items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                              {partOfSpeech}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                              {level}
+                            </span>
+                            {hooks.cognate && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                                {hooks.cognate === "direct"
+                                  ? "Direct cognate"
+                                  : hooks.cognate === "near"
+                                    ? "Near-cognate"
+                                    : hooks.cognate === "false"
+                                      ? "False friend"
+                                      : "No-cognate"}
+                              </span>
+                            )}
+                            {hooks.frequency && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                                {hooks.frequency === "core"
+                                  ? "Core"
+                                  : hooks.frequency === "booster"
+                                    ? "Booster"
+                                    : "Specialist"}
+                              </span>
+                            )}
+                            <span className={cn("text-xs px-2 py-0.5 rounded-full", getStatusStyles(status))}>
+                              {getStatusLabel(status)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          const speechText = getSpeechText(word)
-                          if (!speechText) return
-                          speakText(speakKey, speechText)
-                        }}
-                        disabled={!speechSupported}
-                        title={
-                          speechSupported
-                            ? `Speak ${getSpeechText(word)}`
-                            : "Speech not supported"
-                        }
-                      >
-                        <Volume2
-                          className={cn(
-                            "w-4 h-4",
-                            speakingKey === speakKey ? "text-primary" : "text-muted-foreground"
+
+                      <div className="hidden sm:flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-4 flex-1 min-w-0">
+                          {word.article ? (
+                            <span className={cn("px-2 py-1 rounded text-xs font-medium shrink-0", getArticleColor(word.article))}>
+                              {word.article}
+                            </span>
+                          ) : (
+                            <span className={cn("px-2 py-1 rounded text-xs font-medium shrink-0", getCategoryColor(word.category))}>
+                              {categories.find(c => c.id === word.category)?.label.split(" ")[0]}
+                            </span>
                           )}
-                        />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setStatus(word.id, "again")
-                        }}
-                        title="Learn again"
-                      >
-                        <RotateCcw className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setStatus(word.id, "learning")
-                        }}
-                        title="Learning"
-                      >
-                        <BookOpen className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setStatus(word.id, "easy")
-                        }}
-                        title="Easy"
-                      >
-                        <Check className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          toggleStar(word.id)
-                        }}
-                      >
-                        <Star
-                          className={cn(
-                            "w-4 h-4",
-                            starredWords.includes(word.id)
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-muted-foreground"
-                          )}
-                        />
-                      </Button>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-foreground truncate">{word.german}</p>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                                {partOfSpeech}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                                {level}
+                              </span>
+                              {hooks.cognate && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                                  {hooks.cognate === "direct"
+                                    ? "Direct cognate"
+                                    : hooks.cognate === "near"
+                                      ? "Near-cognate"
+                                      : hooks.cognate === "false"
+                                        ? "False friend"
+                                        : "No-cognate"}
+                                </span>
+                              )}
+                              {hooks.frequency && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-background text-muted-foreground">
+                                  {hooks.frequency === "core"
+                                    ? "Core"
+                                    : hooks.frequency === "booster"
+                                      ? "Booster"
+                                      : "Specialist"}
+                                </span>
+                              )}
+                              <span className={cn("text-xs px-2 py-0.5 rounded-full", getStatusStyles(status))}>
+                                {getStatusLabel(status)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{word.english}</p>
+                            {word.note && (
+                              <p className="text-xs text-primary mt-1">{word.note}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              const speechText = getSpeechText(word)
+                              if (!speechText) return
+                              speakText(speakKey, speechText)
+                            }}
+                            disabled={!speechSupported}
+                            title={
+                              speechSupported
+                                ? `Speak ${getSpeechText(word)}`
+                                : "Speech not supported"
+                            }
+                          >
+                            <Volume2
+                              className={cn(
+                                "w-4 h-4",
+                                speakingKey === speakKey ? "text-primary" : "text-muted-foreground"
+                              )}
+                            />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setStatus(word.id, "again")
+                            }}
+                            title="Learn again"
+                          >
+                            <RotateCcw className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setStatus(word.id, "learning")
+                            }}
+                            title="Learning"
+                          >
+                            <BookOpen className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setStatus(word.id, "easy")
+                            }}
+                            title="Easy"
+                          >
+                            <Check className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              toggleStar(word.id)
+                            }}
+                          >
+                            <Star
+                              className={cn(
+                                "w-4 h-4",
+                                starredWords.includes(word.id)
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-muted-foreground"
+                              )}
+                            />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )
