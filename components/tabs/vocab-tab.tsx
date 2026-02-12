@@ -763,6 +763,8 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
   const [localLesson, setLocalLesson] = useState("all")
   const [speakingKey, setSpeakingKey] = useState<string | null>(null)
   const [speechSupported, setSpeechSupported] = useState(true)
+  const [germanVoice, setGermanVoice] = useState<SpeechSynthesisVoice | null>(null)
+  const [voiceWarning, setVoiceWarning] = useState(false)
   const [selectedWordId, setSelectedWordId] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<"all" | WordStatus>("all")
   const [levelFilter, setLevelFilter] = useState<"all" | WordLevel>("all")
@@ -789,6 +791,21 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
         window.speechSynthesis.cancel()
       }
     }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return
+    const pickGermanVoice = () => {
+      const voices = window.speechSynthesis.getVoices()
+      if (voices.length === 0) return
+      const match = voices.find(voice => voice.lang?.toLowerCase().startsWith("de")) ?? null
+      setGermanVoice(match)
+      setVoiceWarning(!match)
+    }
+    pickGermanVoice()
+    const handler = () => pickGermanVoice()
+    window.speechSynthesis.addEventListener("voiceschanged", handler)
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", handler)
   }, [])
 
   useEffect(() => {
@@ -1084,7 +1101,12 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     }
     synthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = "de-DE"
+    if (germanVoice) {
+      utterance.voice = germanVoice
+      utterance.lang = germanVoice.lang
+    } else {
+      utterance.lang = "de-DE"
+    }
     utterance.onend = () => setSpeakingKey(current => (current === key ? null : current))
     utterance.onerror = () => setSpeakingKey(current => (current === key ? null : current))
     setSpeakingKey(key)
@@ -1587,6 +1609,11 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
                 {filteredVocab.length} words
               </span>
             </CardTitle>
+            {speechSupported && voiceWarning && (
+              <p className="text-xs text-amber-600">
+                German voice not installed; pronunciation may sound English.
+              </p>
+            )}
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto pr-2 min-h-0 w-full max-w-full min-w-0">
             <div className="space-y-2">
