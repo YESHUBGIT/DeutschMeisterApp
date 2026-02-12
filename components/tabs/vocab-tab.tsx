@@ -798,14 +798,23 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     const pickGermanVoice = () => {
       const voices = window.speechSynthesis.getVoices()
       if (voices.length === 0) return
-      const match = voices.find(voice => voice.lang?.toLowerCase().startsWith("de")) ?? null
+      const match =
+        voices.find(voice => voice.lang?.toLowerCase().startsWith("de-")) ??
+        voices.find(voice => voice.lang?.toLowerCase().startsWith("de")) ??
+        voices.find(voice => voice.name?.toLowerCase().includes("german")) ??
+        voices.find(voice => voice.name?.toLowerCase().includes("deutsch")) ??
+        null
       setGermanVoice(match)
       setVoiceWarning(!match)
     }
     pickGermanVoice()
     const handler = () => pickGermanVoice()
     window.speechSynthesis.addEventListener("voiceschanged", handler)
-    return () => window.speechSynthesis.removeEventListener("voiceschanged", handler)
+    window.speechSynthesis.onvoiceschanged = handler
+    return () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", handler)
+      window.speechSynthesis.onvoiceschanged = null
+    }
   }, [])
 
   useEffect(() => {
@@ -953,12 +962,22 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     handleLessonValueChange("all")
   }
 
-  const clearStarred = () => setStarredWords([])
+  const confirmClear = (label: string) => {
+    if (typeof window === "undefined") return true
+    return window.confirm(`Clear all ${label}? This cannot be undone.`)
+  }
+
+  const clearStarred = () => {
+    if (!confirmClear("starred words")) return
+    setStarredWords([])
+  }
+
   const clearStatus = (target: WordStatus) => {
     if (target === "starred") {
       clearStarred()
       return
     }
+    if (!confirmClear(`${target} words`)) return
     setStatusById((prev) => {
       const updated = { ...prev }
       Object.keys(updated).forEach((key) => {
@@ -1100,12 +1119,27 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
       return
     }
     synthesis.cancel()
+    const voices = synthesis.getVoices()
+    const match =
+      voices.find(voice => voice.lang?.toLowerCase().startsWith("de-")) ??
+      voices.find(voice => voice.lang?.toLowerCase().startsWith("de")) ??
+      voices.find(voice => voice.name?.toLowerCase().includes("german")) ??
+      voices.find(voice => voice.name?.toLowerCase().includes("deutsch")) ??
+      null
+    if (match && match !== germanVoice) {
+      setGermanVoice(match)
+      setVoiceWarning(false)
+    }
     const utterance = new SpeechSynthesisUtterance(text)
-    if (germanVoice) {
+    if (match) {
+      utterance.voice = match
+      utterance.lang = match.lang
+    } else if (germanVoice) {
       utterance.voice = germanVoice
       utterance.lang = germanVoice.lang
     } else {
       utterance.lang = "de-DE"
+      setVoiceWarning(true)
     }
     utterance.onend = () => setSpeakingKey(current => (current === key ? null : current))
     utterance.onerror = () => setSpeakingKey(current => (current === key ? null : current))
