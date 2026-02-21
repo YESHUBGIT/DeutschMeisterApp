@@ -1,13 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports */
 import type { NextAuthOptions } from "next-auth"
 import Cognito from "next-auth/providers/cognito"
 
-function getAdapter() {
+function getAdapter(): any {
   if (process.env.AUTH_DISABLED === "true") return undefined
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaAdapter } = require("@auth/prisma-adapter") as typeof import("@auth/prisma-adapter")
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { prisma } = require("@/lib/prisma") as { prisma: import("@prisma/client").PrismaClient }
+    const { PrismaAdapter } = require("@auth/prisma-adapter")
+    const { prisma } = require("@/lib/prisma")
     return PrismaAdapter(prisma)
   } catch {
     return undefined

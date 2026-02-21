@@ -1,37 +1,51 @@
-import type { PrismaClient as PrismaClientType } from "@prisma/client"
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-const globalForPrisma = global as typeof globalThis & {
-  prisma?: PrismaClientType
-}
+/**
+ * Lazy-loaded Prisma client.
+ *
+ * We purposely avoid ANY static import (including `import type`) from
+ * `@prisma/client` because Turbopack resolves even type-only imports at
+ * bundle time and crashes when the generated client is missing.
+ *
+ * Instead we dynamically require the package at runtime and fall back to a
+ * helpful error proxy when it isn't available (e.g. AUTH_DISABLED=true).
+ */
 
-function getPrismaClient(): PrismaClientType {
-  if (globalForPrisma.prisma) return globalForPrisma.prisma
+const globalForPrisma = globalThis as typeof globalThis & { __prisma?: any }
+
+function getPrismaClient(): any {
+  if (globalForPrisma.__prisma) return globalForPrisma.__prisma
 
   try {
-    // Dynamic require to avoid crashing when @prisma/client is not generated
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaClient } = require("@prisma/client") as typeof import("@prisma/client")
-    const client = new PrismaClient({ log: ["error", "warn"] })
+    const mod = require("@prisma/client")
+    const client = new mod.PrismaClient({ log: ["error", "warn"] })
     if (process.env.NODE_ENV !== "production") {
-      globalForPrisma.prisma = client
+      globalForPrisma.__prisma = client
     }
     return client
   } catch {
-    // Return a proxy that throws a helpful error on use
-    return new Proxy({} as PrismaClientType, {
-      get(_, prop) {
-        if (prop === "then" || prop === Symbol.toPrimitive) return undefined
-        throw new Error(
-          `Prisma Client is not available. Run "npx prisma generate" or set AUTH_DISABLED=true. (accessed .${String(prop)})`
-        )
-      },
-    })
+    // Return a proxy that throws a helpful error when any property is accessed
+    return new Proxy(
+      {},
+      {
+        get(_, prop) {
+          if (prop === "then" || prop === Symbol.toPrimitive) return undefined
+          throw new Error(
+            `Prisma Client is not available. Run "npx prisma generate" or set AUTH_DISABLED=true. (accessed .${String(prop)})`
+          )
+        },
+      }
+    )
   }
 }
 
-/** Lazy-loaded Prisma client – safe to import even when the generated client is missing. */
-export const prisma: PrismaClientType = new Proxy({} as PrismaClientType, {
-  get(_, prop) {
-    return Reflect.get(getPrismaClient(), prop)
-  },
-})
+/** Lazy Prisma client – safe to import even without a generated client. */
+export const prisma: any = new Proxy(
+  {},
+  {
+    get(_, prop) {
+      return Reflect.get(getPrismaClient(), prop)
+    },
+  }
+)
