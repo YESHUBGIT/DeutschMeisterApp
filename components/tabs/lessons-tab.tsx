@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { IgelMascot, type IgelMood } from "@/components/igel/igel-mascot"
+import { useSoundSettings } from "@/lib/use-sound-settings"
 import { ChevronRight, ChevronDown, BookText, Layers, Target, Zap, CheckCircle2, Clock, Star, AlertCircle, Lightbulb, GitBranch, ArrowRight, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -1359,6 +1360,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   } | null>(null)
   const { status: authStatus } = useSession()
   const authDisabled = process.env.NEXT_PUBLIC_AUTH_DISABLED === "true"
+  const { play } = useSoundSettings()
   const casesTopicCount = casesTree.branches.reduce((acc, branch) => acc + branch.topics.length, 0)
   const timeZone = useMemo(
     () => (typeof window === "undefined" ? "UTC" : Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"),
@@ -1431,6 +1433,14 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
           streakBackup: data.progress.streakBackup,
           treats: data.progress.treats,
         })
+        const previousDailyXp = progress?.dailyXp ?? 0
+        const justReachedGoal =
+          previousDailyXp < data.progress.dailyGoal && data.progress.dailyXp >= data.progress.dailyGoal
+        if (justReachedGoal) {
+          play("streak")
+        } else {
+          play("complete")
+        }
         setCompletionData({
           xp,
           title: title ?? "Lesson complete",
@@ -1551,6 +1561,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
           treats: data.progress.treats,
         })
       }
+      play("success")
       setProgressMessage("Streak restored.")
     } catch (error) {
       console.error("Failed to restore streak", error)

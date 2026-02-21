@@ -2,10 +2,11 @@
 
 import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
-import { BookOpen, Brain, BookText, Layers, Target, Zap, Table, MessageCircle } from "lucide-react"
+import { BookOpen, Brain, BookText, Layers, Target, Zap, Table, MessageCircle, Volume2, VolumeX } from "lucide-react"
 import type { TabType } from "@/app/page"
 import { Button } from "@/components/ui/button"
 import { IgelMascot } from "@/components/igel/igel-mascot"
+import { useSoundSettings } from "@/lib/use-sound-settings"
 import { cn } from "@/lib/utils"
 
 interface HeaderProps {
@@ -27,6 +28,7 @@ const tabs = [
 export function Header({ activeTab, onTabChange }: HeaderProps) {
   const { status, data: session } = useSession()
   const isAuthed = status === "authenticated"
+  const { enabled, toggle } = useSoundSettings()
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border shadow-sm">
@@ -65,20 +67,25 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
                 )
               })}
             </nav>
-            {isAuthed ? (
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground max-w-[180px] truncate">
-                  {session?.user?.name ?? session?.user?.email}
-                </span>
-                <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/auth/signin" })}>
-                  Sign out
-                </Button>
-              </div>
-            ) : (
-              <Button asChild variant="outline" size="sm">
-                <Link href="/auth/signin">Sign in</Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle sound">
+                {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </Button>
-            )}
+              {isAuthed ? (
+                <>
+                  <span className="text-xs text-muted-foreground max-w-[180px] truncate">
+                    {session?.user?.name ?? session?.user?.email}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/auth/signin" })}>
+                    Sign out
+                  </Button>
+                </>
+              ) : (
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/auth/signin">Sign in</Link>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -102,6 +109,9 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )
           })}
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={toggle} aria-label="Toggle sound">
+            {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+          </Button>
           {isAuthed ? (
             <Button variant="outline" size="sm" className="shrink-0" onClick={() => signOut({ callbackUrl: "/auth/signin" })}>
               Sign out
