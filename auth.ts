@@ -1,10 +1,21 @@
 import type { NextAuthOptions } from "next-auth"
 import Cognito from "next-auth/providers/cognito"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import { prisma } from "@/lib/prisma"
+
+function getAdapter() {
+  if (process.env.AUTH_DISABLED === "true") return undefined
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaAdapter } = require("@auth/prisma-adapter") as typeof import("@auth/prisma-adapter")
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { prisma } = require("@/lib/prisma") as { prisma: import("@prisma/client").PrismaClient }
+    return PrismaAdapter(prisma)
+  } catch {
+    return undefined
+  }
+}
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: getAdapter(),
   session: { strategy: "jwt" },
   providers: [
     Cognito({

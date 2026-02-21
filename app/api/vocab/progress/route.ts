@@ -9,7 +9,12 @@ type ProgressEntry = {
   starred: boolean
 }
 
+const mockVocabStore = globalThis as typeof globalThis & {
+  mockVocabEntries?: ProgressEntry[]
+}
+
 const getUserId = async () => {
+  if (process.env.AUTH_DISABLED === "true") return "local"
   const session = await getServerSession(authOptions)
   const email = session?.user?.email
   if (!email) return null
@@ -21,6 +26,9 @@ export async function GET() {
   const userId = await getUserId()
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  if (process.env.AUTH_DISABLED === "true") {
+    return NextResponse.json({ entries: mockVocabStore.mockVocabEntries ?? [] })
   }
   const entries = await prisma.vocabProgress.findMany({
     where: { userId },
@@ -36,6 +44,12 @@ export async function PUT(request: Request) {
   }
   const body = await request.json()
   const entries: ProgressEntry[] = Array.isArray(body.entries) ? body.entries : []
+
+  if (process.env.AUTH_DISABLED === "true") {
+    mockVocabStore.mockVocabEntries = entries
+    return NextResponse.json({ ok: true })
+  }
+
   const wordIds = entries.map(entry => entry.wordId)
   await prisma.$transaction([
     prisma.vocabProgress.deleteMany({
