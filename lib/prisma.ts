@@ -3,29 +3,28 @@
 /**
  * Lazy-loaded Prisma client.
  *
- * We purposely avoid ANY static import (including `import type`) from
- * `@prisma/client` because Turbopack resolves even type-only imports at
- * bundle time and crashes when the generated client is missing.
- *
- * Instead we dynamically require the package at runtime and fall back to a
- * helpful error proxy when it isn't available (e.g. AUTH_DISABLED=true).
+ * We use `eval("require")` to completely hide the `@prisma/client` dependency
+ * from Turbopack's static analysis. Turbopack traces both `import` and
+ * `require()` at compile time and crashes when the generated client is missing.
+ * `eval("require")` is opaque to the bundler so the module is only resolved
+ * at runtime.
  */
 
 const globalForPrisma = globalThis as typeof globalThis & { __prisma?: any }
 
-function getPrismaClient(): any {
+function loadPrismaClient(): any {
   if (globalForPrisma.__prisma) return globalForPrisma.__prisma
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("@prisma/client")
+    // eval("require") is invisible to Turbopack's static analysis
+    const dynamicRequire = eval("require") as NodeRequire
+    const mod = dynamicRequire("@prisma/client")
     const client = new mod.PrismaClient({ log: ["error", "warn"] })
     if (process.env.NODE_ENV !== "production") {
       globalForPrisma.__prisma = client
     }
     return client
   } catch {
-    // Return a proxy that throws a helpful error when any property is accessed
     return new Proxy(
       {},
       {
@@ -45,7 +44,7 @@ export const prisma: any = new Proxy(
   {},
   {
     get(_, prop) {
-      return Reflect.get(getPrismaClient(), prop)
+      return Reflect.get(loadPrismaClient(), prop)
     },
   }
 )
