@@ -76,6 +76,25 @@ const placementQuestions = [
   },
 ]
 
+const welcomePrompts = [
+  {
+    title: "What are you in the mood for today?",
+    description: "Pick a short win or dive into a focused lesson to keep your streak alive.",
+  },
+  {
+    title: "Ready for a quick German boost?",
+    description: "Choose a bite-sized mission or a deeper drill to level up.",
+  },
+  {
+    title: "Today is a great day to practice",
+    description: "We picked a couple of options to keep your momentum rolling.",
+  },
+  {
+    title: "Let’s keep the streak warm",
+    description: "Pick a focus and we will guide you into a quick challenge.",
+  },
+]
+
 const verbTree = {
   id: "verbs",
   title: "VERBS (Das Verb)",
@@ -1467,6 +1486,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [correctCount, setCorrectCount] = useState(0)
   const [showReference, setShowReference] = useState(false)
+  const [welcomeOpen, setWelcomeOpen] = useState(false)
   const { status: authStatus } = useSession()
   const authDisabled = process.env.NEXT_PUBLIC_AUTH_DISABLED === "true"
   const { play } = useSoundSettings()
@@ -1475,6 +1495,29 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     () => (typeof window === "undefined" ? "UTC" : Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"),
     []
   )
+  const dateKey = useMemo(() => {
+    if (typeof window === "undefined") return ""
+    const now = new Date()
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(now)
+  }, [timeZone])
+  const dailyWelcome = useMemo(() => {
+    if (!dateKey) return welcomePrompts[0]
+    const seed = dateKey.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return welcomePrompts[seed % welcomePrompts.length]
+  }, [dateKey])
+  const dailyLessonPicks = useMemo(() => {
+    if (!dateKey) return regularLessons.slice(0, 2)
+    const seed = dateKey.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    const firstIndex = seed % regularLessons.length
+    const secondIndex = (seed + 3) % regularLessons.length
+    const picks = [regularLessons[firstIndex], regularLessons[secondIndex]].filter(Boolean)
+    return picks
+  }, [dateKey])
 
   const parseDurationMinutes = (duration?: string) => {
     if (!duration) return null
@@ -1660,6 +1703,17 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
       loadProgress()
     }
   }, [authStatus, authDisabled])
+
+  useEffect(() => {
+    if (!dateKey) return
+    if (placementOpen) return
+    if (typeof window === "undefined") return
+    const dismissedKey = `dm-welcome-dismissed-${dateKey}`
+    const dismissed = window.localStorage.getItem(dismissedKey)
+    if (!dismissed) {
+      setWelcomeOpen(true)
+    }
+  }, [dateKey, placementOpen])
 
   useEffect(() => {
     if (selectedLesson === null) return
@@ -1864,6 +1918,81 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  const handleCloseWelcome = () => {
+    if (!dateKey || typeof window === "undefined") {
+      setWelcomeOpen(false)
+      return
+    }
+    window.localStorage.setItem(`dm-welcome-dismissed-${dateKey}`, "true")
+    setWelcomeOpen(false)
+  }
+
+  const renderWelcomeDialog = () => {
+    return (
+      <Dialog open={welcomeOpen} onOpenChange={setWelcomeOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{dailyWelcome.title}</DialogTitle>
+            <DialogDescription>{dailyWelcome.description}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 md:grid-cols-[180px_1fr] items-start">
+            <div className="flex justify-center md:justify-start">
+              <div className="h-40 w-40 flex items-center justify-center">
+                <IgelMascot size={140} mood="happy" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {dailyLessonPicks.map((lesson) => (
+                  <Card key={lesson.id} className="border-dashed">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-full text-xs font-medium",
+                          lesson.level === "Beginner" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                        )}>
+                          {lesson.level}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {lesson.duration}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">{lesson.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{lesson.description}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedLesson(lesson.id)
+                          handleCloseWelcome()
+                        }}
+                      >
+                        Start now
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => { onNavigate("train"); handleCloseWelcome() }}>
+                  Quick practice
+                </Button>
+                <Button variant="outline" onClick={() => { onNavigate("vocab"); handleCloseWelcome() }}>
+                  Vocabulary sprint
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={handleCloseWelcome}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     )
@@ -2576,6 +2705,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   // Main lessons list
   return (
     <div className="space-y-6">
+      {renderWelcomeDialog()}
       {renderPlacementDialog()}
       <Dialog open={completionOpen} onOpenChange={setCompletionOpen}>
         <DialogContent>
@@ -2631,62 +2761,76 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
       {/* Roadmap */}
       <div>
         <h3 className="font-semibold text-lg mb-4">Your Roadmap</h3>
-        <div className="relative border-l-2 border-muted pl-6 space-y-6">
-          {regularLessons.map((lesson) => {
+        <div className="relative">
+          <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-muted-foreground/30" />
+          <div className="space-y-10">
+          {regularLessons.map((lesson, index) => {
             const isRecommended = lesson.id === recommendedLessonId
             const lessonXp = calculateLessonXp(lesson.duration)
+            const isLeft = index % 2 === 0
             return (
-              <div key={lesson.id} className="relative">
+              <div key={lesson.id} className="relative grid gap-6 md:grid-cols-2">
                 <div
                   className={cn(
-                    "absolute -left-[29px] top-4 h-6 w-6 rounded-full border-2 flex items-center justify-center",
+                    "absolute left-4 md:left-1/2 top-6 h-7 w-7 -translate-y-1/2 rounded-full border-2 flex items-center justify-center z-10",
                     isRecommended
                       ? "bg-primary border-primary text-primary-foreground"
                       : "bg-background border-muted-foreground/40"
                   )}
                 >
-                  {isRecommended ? <Star className="h-3 w-3" /> : <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />}
+                  {isRecommended ? <Star className="h-3.5 w-3.5" /> : <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />}
                 </div>
-                <Card className={cn("transition-all", isRecommended && "border-primary/60 shadow")}
+                <div className={cn(isLeft ? "md:pr-10" : "md:col-start-2 md:pl-10")}
                 >
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span
-                        className={cn(
-                          "px-2 py-0.5 rounded-full text-xs font-medium",
-                          lesson.level === "Beginner" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                        )}
-                      >
-                        {lesson.level}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {lesson.duration}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Zap className="h-3 w-3" />
-                        {lessonXp} XP
-                      </span>
-                      {isRecommended && (
-                        <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
-                          Recommended
+                  <Card
+                    className={cn(
+                      "transition-all bg-gradient-to-br from-background to-muted/30",
+                      isRecommended && "border-primary/60 shadow"
+                    )}
+                  >
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded-full text-xs font-medium",
+                            lesson.level === "Beginner" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                          )}
+                        >
+                          {lesson.level}
                         </span>
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">{lesson.title}</h4>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {lesson.description}
-                      </p>
-                    </div>
-                    <Button size="sm" onClick={() => setSelectedLesson(lesson.id)}>
-                      Start lesson
-                    </Button>
-                  </CardContent>
-                </Card>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {lesson.duration}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Zap className="h-3 w-3" />
+                          {lessonXp} XP
+                        </span>
+                        {isRecommended && (
+                          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                            Recommended
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">{lesson.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {lesson.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={() => setSelectedLesson(lesson.id)}>
+                          Start lesson
+                        </Button>
+                        <span className="text-xs text-muted-foreground">Next stop</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             )
           })}
+          </div>
         </div>
       </div>
 
