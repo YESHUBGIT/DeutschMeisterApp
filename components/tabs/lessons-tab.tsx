@@ -1940,17 +1940,17 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
             <DialogTitle>{dailyWelcome.title}</DialogTitle>
             <DialogDescription>{dailyWelcome.description}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-6 md:grid-cols-[180px_1fr] items-start">
+          <div className="grid gap-6 md:grid-cols-[200px_1fr] items-start">
             <div className="flex justify-center md:justify-start">
-              <div className="h-40 w-40 flex items-center justify-center">
-                <IgelMascot size={140} mood="happy" />
+              <div className="h-44 w-44 flex items-center justify-center">
+                <IgelMascot size={150} mood="happy" />
               </div>
             </div>
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 {dailyLessonPicks.map((lesson) => (
-                  <Card key={lesson.id} className="border-dashed">
-                    <CardContent className="p-4 space-y-3">
+                  <Card key={lesson.id} className="border-dashed bg-white/70">
+                    <CardContent className="p-4 space-y-3 flex flex-col h-full">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span className={cn(
                           "px-2 py-0.5 rounded-full text-xs font-medium",
@@ -1967,6 +1967,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
                         <h4 className="font-semibold">{lesson.title}</h4>
                         <p className="text-sm text-muted-foreground line-clamp-2">{lesson.description}</p>
                       </div>
+                      <div className="flex-1" />
                       <Button
                         size="sm"
                         onClick={() => {
@@ -1980,11 +1981,11 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
                   </Card>
                 ))}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => { onNavigate("train"); handleCloseWelcome() }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => { onNavigate("train"); handleCloseWelcome() }}>
                   Quick practice
                 </Button>
-                <Button variant="outline" onClick={() => { onNavigate("vocab"); handleCloseWelcome() }}>
+                <Button variant="outline" size="sm" onClick={() => { onNavigate("vocab"); handleCloseWelcome() }}>
                   Vocabulary sprint
                 </Button>
               </div>
@@ -2071,6 +2072,27 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     [selectedLessonData?.id]
   )
   const activeQuestion = lessonQuestions[questionIndex]
+  const roadmapItems = useMemo(() => {
+    return [
+      ...regularLessons.map((lesson) => ({ type: "lesson" as const, lesson })),
+      {
+        type: "tree" as const,
+        treeId: "verbs" as const,
+        title: "Verbs Tree",
+        description: "Master all verb concepts: tenses, moods, passive voice, and more.",
+        tag: "Intermediate",
+        accent: "bg-primary/10 text-primary",
+      },
+      {
+        type: "tree" as const,
+        treeId: "cases" as const,
+        title: "Cases Tree",
+        description: "Nominativ, Akkusativ, Dativ, Genitiv and how they change words.",
+        tag: "Intermediate",
+        accent: "bg-amber-100 text-amber-700",
+      },
+    ]
+  }, [])
 
   // Render verb lesson content
   const resolveLessonIdForLinks = () => {
@@ -2764,12 +2786,14 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
         <div className="relative">
           <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-muted-foreground/30" />
           <div className="space-y-10">
-          {regularLessons.map((lesson, index) => {
-            const isRecommended = lesson.id === recommendedLessonId
-            const lessonXp = calculateLessonXp(lesson.duration)
+          {roadmapItems.map((item, index) => {
             const isLeft = index % 2 === 0
+            if (item.type === "lesson") {
+              const lesson = item.lesson
+              const isRecommended = lesson.id === recommendedLessonId
+              const lessonXp = calculateLessonXp(lesson.duration)
             return (
-              <div key={lesson.id} className="relative grid gap-6 md:grid-cols-2">
+              <div key={`lesson-${lesson.id}`} className="relative grid gap-6 md:grid-cols-2">
                 <div
                   className={cn(
                     "absolute left-4 md:left-1/2 top-6 h-7 w-7 -translate-y-1/2 rounded-full border-2 flex items-center justify-center z-10",
@@ -2829,86 +2853,45 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
                 </div>
               </div>
             )
+            }
+
+            return (
+              <div key={`tree-${item.treeId}`} className="relative grid gap-6 md:grid-cols-2">
+                <div
+                  className={cn(
+                    "absolute left-4 md:left-1/2 top-6 h-7 w-7 -translate-y-1/2 rounded-full border-2 flex items-center justify-center z-10",
+                    "bg-background border-muted-foreground/40"
+                  )}
+                >
+                  <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className={cn(isLeft ? "md:pr-10" : "md:col-start-2 md:pl-10")}>
+                  <Card className="transition-all bg-gradient-to-br from-background to-muted/20">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", item.accent)}>
+                          {item.tag}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">{item.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {item.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openTree(item.treeId)}>
+                          Open tree
+                        </Button>
+                        <span className="text-xs text-muted-foreground">Branch out</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )
           })}
           </div>
-        </div>
-      </div>
-
-      {/* Intermediate Lesson Trees */}
-      <div>
-        <h3 className="font-semibold text-lg mb-4">Intermediate Lesson Trees</h3>
-        <div className="space-y-4">
-          {/* Featured: Verb Tree */}
-          <Card 
-            className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/5 border-primary/30 cursor-pointer hover:shadow-lg transition-all"
-            onClick={() => openTree("verbs")}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="bg-primary text-primary-foreground p-3 rounded-full">
-                    <GitBranch className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-primary">VERBS - The Complete Tree</h3>
-                    <p className="text-muted-foreground">
-                      Master all verb concepts: tenses, moods, passive voice, and more!
-                    </p>
-                    <div className="flex items-center gap-4 mt-2 text-sm">
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <Layers className="h-4 w-4" />
-                        6 Levels
-                      </span>
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <BookText className="h-4 w-4" />
-                        20+ Topics
-                      </span>
-                      <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
-                        Featured
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="h-6 w-6 text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Featured: Cases Tree */}
-          <Card
-            className="bg-gradient-to-r from-amber-100/70 via-amber-50 to-yellow-100/60 border-amber-300/60 cursor-pointer hover:shadow-lg transition-all"
-            onClick={() => openTree("cases")}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="bg-amber-500 text-white p-3 rounded-full">
-                    <Layers className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-amber-700">CASES - The Complete Tree</h3>
-                    <p className="text-muted-foreground">
-                      Nominativ, Akkusativ, Dativ, Genitiv and how they change words.
-                    </p>
-                    <div className="flex items-center gap-4 mt-2 text-sm">
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <Layers className="h-4 w-4" />
-                        {casesTree.branches.length} Levels
-                      </span>
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <BookText className="h-4 w-4" />
-                        {casesTopicCount} Topics
-                      </span>
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                        New
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="h-6 w-6 text-amber-600" />
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
