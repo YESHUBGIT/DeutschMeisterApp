@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate || true",
-    "build": "next build",
-    "dev": "next dev",
+    "postinstall": "prisma generate --no-hints || true",
+    "build": "prisma generate --no-hints && next build",
+    "dev": "prisma generate --no-hints && next dev",
     "lint": "eslint .",
     "start": "next start"
   },
