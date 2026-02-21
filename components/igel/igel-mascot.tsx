@@ -1,18 +1,14 @@
 "use client"
 
-import Lottie from "lottie-react"
-import idle from "@/components/igel/igel-idle.json"
-import happy from "@/components/igel/igel-happy.json"
-import sad from "@/components/igel/igel-sad.json"
-import celebrate from "@/components/igel/igel-celebrate.json"
+import { DotLottieReact } from "@lottiefiles/dotlottie-react"
 
 export type IgelMood = "idle" | "happy" | "sad" | "celebrate"
 
-const animations: Record<IgelMood, object> = {
-  idle,
-  happy,
-  sad,
-  celebrate,
+const animations: Record<IgelMood, string> = {
+  idle: "/igel/igel.lottie",
+  happy: "/igel/igel.lottie",
+  sad: "/igel/igel.lottie",
+  celebrate: "/igel/igel.lottie",
 }
 
 interface IgelMascotProps {
@@ -24,9 +20,10 @@ interface IgelMascotProps {
 
 export function IgelMascot({ mood = "idle", size = 48, loop = true, className }: IgelMascotProps) {
   return (
-    <Lottie
-      animationData={animations[mood]}
+    <DotLottieReact
+      src={animations[mood]}
       loop={loop}
+      autoplay
       style={{ width: size, height: size }}
       className={className}
     />
