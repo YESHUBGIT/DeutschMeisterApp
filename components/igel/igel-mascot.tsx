@@ -1,6 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import dynamic from "next/dynamic"
+
+const DotLottieReact = dynamic(
+  () =>
+    import("@lottiefiles/dotlottie-react").then((mod) => mod.DotLottieReact),
+  { ssr: false }
+)
 
 export type IgelMood = "idle" | "happy" | "sad" | "celebrate"
 
@@ -9,29 +15,21 @@ interface IgelMascotProps {
   size?: number
   loop?: boolean
   className?: string
+  useFallback?: boolean
 }
 
 /** Hedgehog mascot: tries the Lottie animation; falls back to an inline SVG hedgehog. */
-export function IgelMascot({ mood = "idle", size = 48, className }: IgelMascotProps) {
-  const [useFallback, setUseFallback] = useState(false)
-
+export function IgelMascot({ mood = "idle", size = 48, className, useFallback = false }: IgelMascotProps) {
   if (!useFallback) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DotLottieReact } = require("@lottiefiles/dotlottie-react")
-      return (
-        <DotLottieReact
-          src="/igel/igel.lottie"
-          loop
-          autoplay
-          style={{ width: size, height: size }}
-          className={className}
-          onLoadError={() => setUseFallback(true)}
-        />
-      )
-    } catch {
-      // DotLottie unavailable at runtime
-    }
+    return (
+      <DotLottieReact
+        src="/igel/igel.lottie"
+        loop
+        autoplay
+        style={{ width: size, height: size }}
+        className={className}
+      />
+    )
   }
 
   // SVG hedgehog fallback
