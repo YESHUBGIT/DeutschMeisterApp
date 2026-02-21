@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSession } from "next-auth/react"
 import type { TabType } from "@/app/page"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { IgelMascot, type IgelMood } from "@/components/igel/igel-mascot"
 import { ChevronRight, ChevronDown, BookText, Layers, Target, Zap, CheckCircle2, Clock, Star, AlertCircle, Lightbulb, GitBranch, ArrowRight, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -1332,7 +1335,230 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set())
+  const [progress, setProgress] = useState<{
+    totalXp: number
+    dailyXp: number
+    dailyGoal: number
+    streakCount: number
+    streakBrokenDate: string | null
+    streakBackup: number
+    treats: number
+  } | null>(null)
+  const [progressMessage, setProgressMessage] = useState<string | null>(null)
+  const [isSavingProgress, setIsSavingProgress] = useState(false)
+  const [completionOpen, setCompletionOpen] = useState(false)
+  const [completionData, setCompletionData] = useState<{
+    xp: number
+    title: string
+    dailyXp: number
+    dailyGoal: number
+    streakCount: number
+    treats: number
+    streakBrokenDate: string | null
+    streakBackup: number
+  } | null>(null)
+  const { status: authStatus } = useSession()
+  const authDisabled = process.env.NEXT_PUBLIC_AUTH_DISABLED === "true"
   const casesTopicCount = casesTree.branches.reduce((acc, branch) => acc + branch.topics.length, 0)
+  const timeZone = useMemo(
+    () => (typeof window === "undefined" ? "UTC" : Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"),
+    []
+  )
+
+  const parseDurationMinutes = (duration?: string) => {
+    if (!duration) return null
+    const match = duration.match(/(\d+)/)
+    return match ? Number(match[1]) : null
+  }
+
+  const calculateLessonXp = (duration?: string) => {
+    const minutes = parseDurationMinutes(duration)
+    if (!minutes) return 25
+    return Math.max(10, Math.round(minutes * 5))
+  }
+
+  const loadProgress = async () => {
+    if (authStatus !== "authenticated") return
+    try {
+      const response = await fetch("/api/gamification/progress")
+      if (!response.ok) return
+      const data = await response.json()
+      if (data?.progress) {
+        setProgress({
+          totalXp: data.progress.totalXp,
+          dailyXp: data.progress.dailyXp,
+          dailyGoal: data.progress.dailyGoal,
+          streakCount: data.progress.streakCount,
+          streakBrokenDate: data.progress.streakBrokenDate,
+          streakBackup: data.progress.streakBackup,
+          treats: data.progress.treats,
+        })
+      }
+    } catch (error) {
+      console.error("Failed to load progress", error)
+    }
+  }
+
+  const awardLessonXp = async (xp: number, lessonId?: string, title?: string) => {
+    if (authStatus !== "authenticated" && !authDisabled) {
+      setProgressMessage("Sign in to track XP and streaks.")
+      return
+    }
+    setIsSavingProgress(true)
+    try {
+      const response = await fetch("/api/gamification/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          xp,
+          activityType: "LESSON_COMPLETE",
+          lessonId,
+          timezone: timeZone,
+        }),
+      })
+      if (!response.ok) {
+        setProgressMessage("Failed to save XP. Please try again.")
+        return
+      }
+      const data = await response.json()
+      if (data?.progress) {
+        setProgress({
+          totalXp: data.progress.totalXp,
+          dailyXp: data.progress.dailyXp,
+          dailyGoal: data.progress.dailyGoal,
+          streakCount: data.progress.streakCount,
+          streakBrokenDate: data.progress.streakBrokenDate,
+          streakBackup: data.progress.streakBackup,
+          treats: data.progress.treats,
+        })
+        setCompletionData({
+          xp,
+          title: title ?? "Lesson complete",
+          dailyXp: data.progress.dailyXp,
+          dailyGoal: data.progress.dailyGoal,
+          streakCount: data.progress.streakCount,
+          treats: data.progress.treats,
+          streakBrokenDate: data.progress.streakBrokenDate,
+          streakBackup: data.progress.streakBackup,
+        })
+        setCompletionOpen(true)
+      }
+      setProgressMessage(`+${xp} XP added.`)
+    } catch (error) {
+      console.error("Failed to award XP", error)
+      setProgressMessage("Failed to save XP. Please try again.")
+    } finally {
+      setIsSavingProgress(false)
+    }
+  }
+
+  useEffect(() => {
+    if (authStatus === "authenticated" || authDisabled) {
+      loadProgress()
+    }
+  }, [authStatus, authDisabled])
+
+  const renderProgressCard = () => {
+    if (authStatus !== "authenticated" && !authDisabled) {
+      return (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Sign in to track XP and streaks.</p>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    if (!progress) return null
+
+    const progressPercent = Math.min(100, Math.round((progress.dailyXp / progress.dailyGoal) * 100))
+    const mood: IgelMood = progress.streakBrokenDate
+      ? "sad"
+      : progress.dailyXp >= progress.dailyGoal
+        ? "celebrate"
+        : progressMessage?.startsWith("+")
+          ? "happy"
+          : "idle"
+    return (
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Daily Goal</p>
+                <p className="text-lg font-semibold">{progress.dailyXp} / {progress.dailyGoal} XP</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Streak</p>
+                <p className="text-lg font-semibold">{progress.streakCount} days</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Treats</p>
+                <p className="text-lg font-semibold">{progress.treats}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center">
+                <IgelMascot size={36} mood={mood} />
+              </div>
+            </div>
+            {progress.streakBrokenDate && progress.streakBackup > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-amber-700">Streak broken. Earn 2x XP today or use 1 treat.</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={progress.treats < 1 || isSavingProgress}
+                  onClick={restoreStreak}
+                >
+                  Use 1 treat
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          {progressMessage && (
+            <p className="text-xs text-muted-foreground">{progressMessage}</p>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const restoreStreak = async () => {
+    if (authStatus !== "authenticated" && !authDisabled) return
+    setIsSavingProgress(true)
+    try {
+      const response = await fetch("/api/gamification/restore", { method: "POST" })
+      if (!response.ok) {
+        setProgressMessage("Unable to restore streak.")
+        return
+      }
+      const data = await response.json()
+      if (data?.progress) {
+        setProgress({
+          totalXp: data.progress.totalXp,
+          dailyXp: data.progress.dailyXp,
+          dailyGoal: data.progress.dailyGoal,
+          streakCount: data.progress.streakCount,
+          streakBrokenDate: data.progress.streakBrokenDate,
+          streakBackup: data.progress.streakBackup,
+          treats: data.progress.treats,
+        })
+      }
+      setProgressMessage("Streak restored.")
+    } catch (error) {
+      console.error("Failed to restore streak", error)
+      setProgressMessage("Unable to restore streak.")
+    } finally {
+      setIsSavingProgress(false)
+    }
+  }
 
   const openTree = (tree: "verbs" | "cases") => {
     setActiveTree(tree)
@@ -1563,6 +1789,50 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   if (activeTree) {
     return (
       <div className="space-y-6">
+        <Dialog open={completionOpen} onOpenChange={setCompletionOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{completionData?.title ?? "Lesson complete"}</DialogTitle>
+              <DialogDescription>
+                {completionData
+                  ? `You earned ${completionData.xp} XP.`
+                  : "Nice work!"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-32 w-32 rounded-full bg-secondary flex items-center justify-center">
+                <IgelMascot size={96} mood="celebrate" />
+              </div>
+              {completionData && (
+                <div className="grid w-full gap-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Daily goal</span>
+                    <span className="font-semibold">
+                      {completionData.dailyXp} / {completionData.dailyGoal} XP
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Streak</span>
+                    <span className="font-semibold">{completionData.streakCount} days</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Treats</span>
+                    <span className="font-semibold">{completionData.treats}</span>
+                  </div>
+                  {completionData.streakBrokenDate && completionData.streakBackup > 0 && (
+                    <p className="text-xs text-amber-700">
+                      Streak broken. Earn 2x XP today or use 1 treat.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setCompletionOpen(false)}>Keep going</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {renderProgressCard()}
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => {
@@ -1594,6 +1864,17 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
             </CardHeader>
             <CardContent>
               {renderVerbContent(currentTopic.content, resolveLessonIdForLinks())}
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Complete this topic to earn XP.
+                </p>
+                <Button
+                  onClick={() => awardLessonXp(calculateLessonXp(), resolveLessonIdForLinks(), currentTopic.title)}
+                  disabled={isSavingProgress}
+                >
+                  Complete Topic (+{calculateLessonXp()} XP)
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : selectedBranch && currentBranch ? (
@@ -1736,9 +2017,54 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   if (selectedLesson !== null) {
     const lesson = regularLessons.find((l) => l.id === selectedLesson)
     if (!lesson) return null
+    const lessonXp = calculateLessonXp(lesson.duration)
 
     return (
       <div className="space-y-6">
+        <Dialog open={completionOpen} onOpenChange={setCompletionOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{completionData?.title ?? "Lesson complete"}</DialogTitle>
+              <DialogDescription>
+                {completionData
+                  ? `You earned ${completionData.xp} XP.`
+                  : "Nice work!"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-32 w-32 rounded-full bg-secondary flex items-center justify-center">
+                <IgelMascot size={96} mood="celebrate" />
+              </div>
+              {completionData && (
+                <div className="grid w-full gap-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Daily goal</span>
+                    <span className="font-semibold">
+                      {completionData.dailyXp} / {completionData.dailyGoal} XP
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Streak</span>
+                    <span className="font-semibold">{completionData.streakCount} days</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Treats</span>
+                    <span className="font-semibold">{completionData.treats}</span>
+                  </div>
+                  {completionData.streakBrokenDate && completionData.streakBackup > 0 && (
+                    <p className="text-xs text-amber-700">
+                      Streak broken. Earn 2x XP today or use 1 treat.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setCompletionOpen(false)}>Keep going</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {renderProgressCard()}
         <Button variant="ghost" onClick={() => setSelectedLesson(null)} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
           Back to Lessons
@@ -1766,6 +2092,17 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
               lesson.content as typeof verbTree.branches[0]["topics"][0]["content"],
               lesson.lessonId
             )}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                Complete this lesson to earn XP.
+              </p>
+              <Button
+                onClick={() => awardLessonXp(lessonXp, lesson.lessonId, lesson.title)}
+                disabled={isSavingProgress}
+              >
+                Complete Lesson (+{lessonXp} XP)
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1775,6 +2112,50 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   // Main lessons list
   return (
     <div className="space-y-6">
+      <Dialog open={completionOpen} onOpenChange={setCompletionOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{completionData?.title ?? "Lesson complete"}</DialogTitle>
+            <DialogDescription>
+              {completionData
+                ? `You earned ${completionData.xp} XP.`
+                : "Nice work!"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-32 w-32 rounded-full bg-secondary flex items-center justify-center">
+              <IgelMascot size={96} mood="celebrate" />
+            </div>
+            {completionData && (
+              <div className="grid w-full gap-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Daily goal</span>
+                  <span className="font-semibold">
+                    {completionData.dailyXp} / {completionData.dailyGoal} XP
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Streak</span>
+                  <span className="font-semibold">{completionData.streakCount} days</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Treats</span>
+                  <span className="font-semibold">{completionData.treats}</span>
+                </div>
+                {completionData.streakBrokenDate && completionData.streakBackup > 0 && (
+                  <p className="text-xs text-amber-700">
+                    Streak broken. Earn 2x XP today or use 1 treat.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCompletionOpen(false)}>Keep going</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {renderProgressCard()}
       <div>
         <h2 className="text-2xl font-bold">German Lessons</h2>
         <p className="text-muted-foreground">

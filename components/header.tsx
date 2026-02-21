@@ -5,6 +5,7 @@ import { signOut, useSession } from "next-auth/react"
 import { BookOpen, Brain, BookText, Layers, Target, Zap, Table, MessageCircle } from "lucide-react"
 import type { TabType } from "@/app/page"
 import { Button } from "@/components/ui/button"
+import { IgelMascot } from "@/components/igel/igel-mascot"
 import { cn } from "@/lib/utils"
 
 interface HeaderProps {
@@ -33,8 +34,8 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
         <div className="flex flex-wrap items-center justify-between gap-3 py-3">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">D</span>
+            <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+              <IgelMascot size={32} />
             </div>
             <div>
               <h1 className="font-bold text-lg sm:text-xl text-foreground">DeutschMeister</h1>
