@@ -35,10 +35,10 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
       <div className="container mx-auto px-4">
         <div className="flex flex-wrap items-center justify-between gap-3 py-3">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-              <IgelMascot size={32} />
-            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 flex items-center justify-center">
+                <IgelMascot size={44} />
+              </div>
             <div>
               <h1 className="font-bold text-lg sm:text-xl text-foreground">DeutschMeister</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">Master German</p>

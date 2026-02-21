@@ -24,6 +24,10 @@ const mockProgressStore = globalThis as typeof globalThis & {
     lastStreakDate: string | null
     timezone: string
     treats: number
+    placementLevel?: string | null
+    placementSource?: string | null
+    placementScore?: number | null
+    placementCompletedAt?: string | null
   }
 }
 
@@ -56,6 +60,10 @@ export async function GET() {
         lastStreakDate: null,
         timezone: "UTC",
         treats: 0,
+        placementLevel: null,
+        placementSource: null,
+        placementScore: null,
+        placementCompletedAt: null,
       }
     }
     return NextResponse.json({ progress: mockProgressStore.mockUserProgress })
@@ -96,6 +104,10 @@ export async function POST(request: Request) {
           lastStreakDate: null,
           timezone: timeZone,
           treats: 0,
+          placementLevel: null,
+          placementSource: null,
+          placementScore: null,
+          placementCompletedAt: null,
         })
       : await prisma.userProgress.upsert({
           where: { userId },
@@ -144,6 +156,10 @@ export async function POST(request: Request) {
   }
 
   if (process.env.AUTH_DISABLED === "true") {
+    const placementLevel = "placementLevel" in progress ? progress.placementLevel ?? null : null
+    const placementSource = "placementSource" in progress ? progress.placementSource ?? null : null
+    const placementScore = "placementScore" in progress ? progress.placementScore ?? null : null
+    const placementCompletedAt = "placementCompletedAt" in progress ? progress.placementCompletedAt ?? null : null
     mockProgressStore.mockUserProgress = {
       totalXp: nextTotalXp,
       dailyXp: nextDailyXp,
@@ -155,6 +171,10 @@ export async function POST(request: Request) {
       lastStreakDate,
       timezone: timeZone,
       treats: nextTreats,
+      placementLevel,
+      placementSource,
+      placementScore,
+      placementCompletedAt,
     }
     return NextResponse.json({ progress: mockProgressStore.mockUserProgress })
   }

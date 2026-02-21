@@ -31,6 +31,51 @@ type LessonContent = {
   tip: string
 }
 
+type PlacementLevel = "A1" | "A2" | "B1" | "B2" | "C1"
+
+type LessonQuestion = {
+  prompt: string
+  choices: string[]
+  answer: string
+  explanation?: string
+}
+
+const placementLevels: Array<{ level: PlacementLevel; label: string; description: string }> = [
+  { level: "A1", label: "A1 Starter", description: "You can greet, introduce yourself, and say simple facts." },
+  { level: "A2", label: "A2 Basics", description: "You can handle daily routines, shopping, and simple past." },
+  { level: "B1", label: "B1 Independent", description: "You can talk about work, travel, and give opinions." },
+  { level: "B2", label: "B2 Confident", description: "You can debate topics and understand longer texts." },
+  { level: "C1", label: "C1 Advanced", description: "You can express yourself fluently and precisely." },
+]
+
+const placementQuestions = [
+  {
+    prompt: "Pick the correct sentence for: 'I would like a coffee.'",
+    choices: ["Ich hätte gern einen Kaffee.", "Ich habe gern einen Kaffee.", "Ich werde gern einen Kaffee."],
+    answer: "Ich hätte gern einen Kaffee.",
+  },
+  {
+    prompt: "Which sentence uses verb-second word order correctly?",
+    choices: ["Heute ich gehe ins Büro.", "Heute gehe ich ins Büro.", "Gehe heute ich ins Büro."],
+    answer: "Heute gehe ich ins Büro.",
+  },
+  {
+    prompt: "Choose the correct case: 'Ich helfe ___.'",
+    choices: ["dich", "dir", "du"],
+    answer: "dir",
+  },
+  {
+    prompt: "Pick the correct perfect tense: 'Ich ___ nach Hause gegangen.'",
+    choices: ["bin", "habe", "war"],
+    answer: "bin",
+  },
+  {
+    prompt: "Choose the correct connector: 'Ich bleibe, ___ ich müde bin.'",
+    choices: ["weil", "oder", "trotzdem"],
+    answer: "weil",
+  },
+]
+
 const verbTree = {
   id: "verbs",
   title: "VERBS (Das Verb)",
@@ -1330,6 +1375,57 @@ const regularLessons = [
   },
 ]
 
+const shuffle = <T,>(items: T[]) => {
+  const copy = [...items]
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const temp = copy[i]
+    copy[i] = copy[j]
+    copy[j] = temp
+  }
+  return copy
+}
+
+const buildLessonQuestions = (lesson: (typeof regularLessons)[number]): LessonQuestion[] => {
+  const examples = lesson.content?.examples ?? []
+  if (!examples.length) return []
+  const fallbackChoices = regularLessons.flatMap((entry) => entry.content?.examples?.map((example) => example.english) ?? [])
+
+  return examples.slice(0, 3).map((example) => {
+    const choiceSet = new Set<string>([example.english])
+    const shuffledFallback = shuffle(fallbackChoices)
+    for (const option of shuffledFallback) {
+      if (choiceSet.size >= 4) break
+      choiceSet.add(option)
+    }
+    const choices = shuffle(Array.from(choiceSet))
+    return {
+      prompt: example.german,
+      choices,
+      answer: example.english,
+    }
+  })
+}
+
+const resolvePlacementLevelFromScore = (score: number, total: number): PlacementLevel => {
+  const ratio = total === 0 ? 0 : score / total
+  if (ratio >= 0.9) return "C1"
+  if (ratio >= 0.75) return "B2"
+  if (ratio >= 0.55) return "B1"
+  if (ratio >= 0.35) return "A2"
+  return "A1"
+}
+
+const resolveRecommendedLessonId = (level: PlacementLevel | null) => {
+  if (!level) return null
+  const beginnerLevels = new Set<PlacementLevel>(["A1", "A2"])
+  const intermediateLevels = new Set<PlacementLevel>(["B1", "B2"])
+  const targetLevel = beginnerLevels.has(level) ? "Beginner" : intermediateLevels.has(level) ? "Intermediate" : "Advanced"
+  const match = regularLessons.find((lesson) => lesson.level === targetLevel)
+  if (match) return match.id
+  return regularLessons[0]?.id ?? null
+}
+
 export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps) {
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null)
   const [activeTree, setActiveTree] = useState<"verbs" | "cases" | null>(null)
@@ -1358,6 +1454,19 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     streakBrokenDate: string | null
     streakBackup: number
   } | null>(null)
+  const [placementOpen, setPlacementOpen] = useState(false)
+  const [placementStep, setPlacementStep] = useState<"choose" | "manual" | "quiz" | "result">("choose")
+  const [placementQuestionIndex, setPlacementQuestionIndex] = useState(0)
+  const [placementCorrect, setPlacementCorrect] = useState(0)
+  const [placementLevel, setPlacementLevel] = useState<PlacementLevel | null>(null)
+  const [recommendedLessonId, setRecommendedLessonId] = useState<number | null>(null)
+  const [placementPending, setPlacementPending] = useState(false)
+  const [lessonStage, setLessonStage] = useState<"intro" | "quiz" | "result">("intro")
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [questionStatus, setQuestionStatus] = useState<"idle" | "correct" | "wrong">("idle")
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
+  const [correctCount, setCorrectCount] = useState(0)
+  const [showReference, setShowReference] = useState(false)
   const { status: authStatus } = useSession()
   const authDisabled = process.env.NEXT_PUBLIC_AUTH_DISABLED === "true"
   const { play } = useSoundSettings()
@@ -1380,7 +1489,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   }
 
   const loadProgress = async () => {
-    if (authStatus !== "authenticated") return
+    if (authStatus !== "authenticated" && !authDisabled) return
     try {
       const response = await fetch("/api/gamification/progress")
       if (!response.ok) return
@@ -1395,6 +1504,12 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
           streakBackup: data.progress.streakBackup,
           treats: data.progress.treats,
         })
+        const nextPlacement = (data.progress.placementLevel as PlacementLevel | null | undefined) ?? null
+        setPlacementLevel(nextPlacement)
+        setRecommendedLessonId(resolveRecommendedLessonId(nextPlacement))
+        if (!nextPlacement) {
+          setPlacementOpen(true)
+        }
       }
     } catch (error) {
       console.error("Failed to load progress", error)
@@ -1462,11 +1577,99 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     }
   }
 
+  const savePlacement = async (level: PlacementLevel, source: "self" | "quiz", score?: number) => {
+    if (authStatus !== "authenticated" && !authDisabled) return
+    setPlacementPending(true)
+    try {
+      const response = await fetch("/api/placement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placementLevel: level,
+          placementSource: source,
+          placementScore: Number.isFinite(score) ? score : null,
+        }),
+      })
+      if (!response.ok) {
+        return
+      }
+      setPlacementLevel(level)
+      const nextRecommended = resolveRecommendedLessonId(level)
+      setRecommendedLessonId(nextRecommended)
+      setPlacementOpen(false)
+      setPlacementStep("choose")
+      setPlacementQuestionIndex(0)
+      setPlacementCorrect(0)
+      if (nextRecommended) {
+        setSelectedLesson(nextRecommended)
+      }
+    } catch (error) {
+      console.error("Failed to save placement", error)
+    } finally {
+      setPlacementPending(false)
+    }
+  }
+
+  const startPlacementQuiz = () => {
+    setPlacementStep("quiz")
+    setPlacementQuestionIndex(0)
+    setPlacementCorrect(0)
+  }
+
+  const handlePlacementAnswer = (choice: string) => {
+    const question = placementQuestions[placementQuestionIndex]
+    const isCorrect = question?.answer === choice
+    const nextCorrect = placementCorrect + (isCorrect ? 1 : 0)
+    if (placementQuestionIndex + 1 >= placementQuestions.length) {
+      const resolved = resolvePlacementLevelFromScore(nextCorrect, placementQuestions.length)
+      setPlacementCorrect(nextCorrect)
+      setPlacementStep("result")
+      setPlacementLevel(resolved)
+      setRecommendedLessonId(resolveRecommendedLessonId(resolved))
+      return
+    }
+    setPlacementCorrect(nextCorrect)
+    setPlacementQuestionIndex((prev) => prev + 1)
+  }
+
+  const handleLessonAnswer = (choice: string) => {
+    if (!activeQuestion || questionStatus !== "idle") return
+    const isCorrect = choice === activeQuestion.answer
+    setSelectedAnswer(choice)
+    setQuestionStatus(isCorrect ? "correct" : "wrong")
+    if (isCorrect) {
+      setCorrectCount((prev) => prev + 1)
+      play("success")
+    } else {
+      play("sad")
+    }
+  }
+
+  const handleNextQuestion = () => {
+    if (questionIndex + 1 >= lessonQuestions.length) {
+      setLessonStage("result")
+      return
+    }
+    setQuestionIndex((prev) => prev + 1)
+    setQuestionStatus("idle")
+    setSelectedAnswer(null)
+  }
+
   useEffect(() => {
     if (authStatus === "authenticated" || authDisabled) {
       loadProgress()
     }
   }, [authStatus, authDisabled])
+
+  useEffect(() => {
+    if (selectedLesson === null) return
+    setLessonStage("intro")
+    setQuestionIndex(0)
+    setQuestionStatus("idle")
+    setSelectedAnswer(null)
+    setCorrectCount(0)
+    setShowReference(false)
+  }, [selectedLesson])
 
   const renderProgressCard = () => {
     if (authStatus !== "authenticated" && !authDisabled) {
@@ -1508,8 +1711,8 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center">
-                <IgelMascot size={36} mood={mood} />
+              <div className="h-14 w-14 flex items-center justify-center">
+                <IgelMascot size={52} mood={mood} />
               </div>
             </div>
             {progress.streakBrokenDate && progress.streakBackup > 0 && (
@@ -1537,6 +1740,132 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
           )}
         </CardContent>
       </Card>
+    )
+  }
+
+  const renderPlacementDialog = () => {
+    return (
+      <Dialog
+        open={placementOpen}
+        onOpenChange={(open) => {
+          if (!open && !placementLevel) return
+          setPlacementOpen(open)
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Find your German level</DialogTitle>
+            <DialogDescription>
+              We will personalize your roadmap so you start at the right level.
+            </DialogDescription>
+          </DialogHeader>
+
+          {placementStep === "choose" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Card className="border-dashed">
+                <CardContent className="p-4 space-y-3">
+                  <h4 className="font-semibold">Quick check (2 min)</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Answer 5 questions and get an instant recommendation.
+                  </p>
+                  <Button className="w-full" onClick={startPlacementQuiz}>
+                    Start checkup
+                  </Button>
+                </CardContent>
+              </Card>
+              <Card className="border-dashed">
+                <CardContent className="p-4 space-y-3">
+                  <h4 className="font-semibold">I know my level</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Pick your CEFR level (A1-C1).
+                  </p>
+                  <Button variant="outline" className="w-full" onClick={() => setPlacementStep("manual")}>
+                    Choose level
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {placementStep === "manual" && (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {placementLevels.map((level) => (
+                  <Card key={level.level} className="hover:border-primary transition-colors">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">{level.label}</h4>
+                        <span className="text-xs text-muted-foreground">{level.level}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{level.description}</p>
+                      <Button
+                        className="w-full"
+                        onClick={() => savePlacement(level.level, "self")}
+                        disabled={placementPending}
+                      >
+                        Start at {level.level}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <Button variant="ghost" onClick={() => setPlacementStep("choose")}>Back</Button>
+            </div>
+          )}
+
+          {placementStep === "quiz" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Question {placementQuestionIndex + 1} / {placementQuestions.length}</span>
+                <span>{placementCorrect} correct</span>
+              </div>
+              <Card>
+                <CardContent className="p-4 space-y-4">
+                  <h4 className="font-semibold">{placementQuestions[placementQuestionIndex]?.prompt}</h4>
+                  <div className="grid gap-2">
+                    {placementQuestions[placementQuestionIndex]?.choices.map((choice) => (
+                      <Button
+                        key={choice}
+                        variant="outline"
+                        className="justify-start"
+                        onClick={() => handlePlacementAnswer(choice)}
+                      >
+                        {choice}
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <Button variant="ghost" onClick={() => setPlacementStep("choose")}>Cancel</Button>
+            </div>
+          )}
+
+          {placementStep === "result" && placementLevel && (
+            <div className="space-y-4">
+              <Card className="bg-primary/5 border-primary/30">
+                <CardContent className="p-4 space-y-2">
+                  <p className="text-sm text-muted-foreground">Recommended level</p>
+                  <h3 className="text-2xl font-bold">{placementLevel}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    We will start you with a lesson that matches this level.
+                  </p>
+                </CardContent>
+              </Card>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => savePlacement(placementLevel, "quiz", placementCorrect)}
+                  disabled={placementPending}
+                >
+                  Start my roadmap
+                </Button>
+                <Button variant="outline" onClick={() => setPlacementStep("manual")}>
+                  Choose a different level
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     )
   }
 
@@ -1607,6 +1936,12 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     ? activeTreeData.branches.find(b => b.id === selectedBranch)
     : undefined
   const currentTopic = currentBranch?.topics.find(t => t.id === selectedTopic)
+  const selectedLessonData = selectedLesson !== null ? regularLessons.find((lesson) => lesson.id === selectedLesson) : null
+  const lessonQuestions = useMemo(
+    () => (selectedLessonData ? buildLessonQuestions(selectedLessonData) : []),
+    [selectedLessonData?.id]
+  )
+  const activeQuestion = lessonQuestions[questionIndex]
 
   // Render verb lesson content
   const resolveLessonIdForLinks = () => {
@@ -1800,6 +2135,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   if (activeTree) {
     return (
       <div className="space-y-6">
+        {renderPlacementDialog()}
         <Dialog open={completionOpen} onOpenChange={setCompletionOpen}>
           <DialogContent>
             <DialogHeader>
@@ -1811,8 +2147,8 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4">
-              <div className="h-32 w-32 rounded-full bg-secondary flex items-center justify-center">
-                <IgelMascot size={96} mood="celebrate" />
+              <div className="h-36 w-36 flex items-center justify-center">
+                <IgelMascot size={120} mood="celebrate" />
               </div>
               {completionData && (
                 <div className="grid w-full gap-3 text-sm">
@@ -2026,7 +2362,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
 
   // Regular lesson detail view
   if (selectedLesson !== null) {
-    const lesson = regularLessons.find((l) => l.id === selectedLesson)
+    const lesson = selectedLessonData
     if (!lesson) return null
     const lessonXp = calculateLessonXp(lesson.duration)
 
@@ -2043,8 +2379,8 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4">
-              <div className="h-32 w-32 rounded-full bg-secondary flex items-center justify-center">
-                <IgelMascot size={96} mood="celebrate" />
+              <div className="h-36 w-36 flex items-center justify-center">
+                <IgelMascot size={120} mood="celebrate" />
               </div>
               {completionData && (
                 <div className="grid w-full gap-3 text-sm">
@@ -2084,10 +2420,12 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <span className={cn(
-                "px-2 py-0.5 rounded-full text-xs font-medium",
-                lesson.level === "Beginner" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-              )}>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-xs font-medium",
+                  lesson.level === "Beginner" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                )}
+              >
                 {lesson.level}
               </span>
               <span className="flex items-center gap-1">
@@ -2099,20 +2437,135 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
             <CardDescription>{lesson.description}</CardDescription>
           </CardHeader>
           <CardContent>
-            {renderVerbContent(
-              lesson.content as typeof verbTree.branches[0]["topics"][0]["content"],
-              lesson.lessonId
-            )}
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                Complete this lesson to earn XP.
-              </p>
-              <Button
-                onClick={() => awardLessonXp(lessonXp, lesson.lessonId, lesson.title)}
-                disabled={isSavingProgress}
-              >
-                Complete Lesson (+{lessonXp} XP)
-              </Button>
+            <div className="space-y-6">
+              {lessonStage === "intro" && (
+                <div className="space-y-4">
+                  <Card className="bg-muted/30">
+                    <CardContent className="p-4 space-y-3">
+                      <h3 className="font-semibold">Mission</h3>
+                      <p className="text-sm text-muted-foreground">{lesson.content.concept}</p>
+                      <div className="grid gap-2">
+                        {lesson.content.keyPoints.slice(0, 3).map((point) => (
+                          <div key={point} className="flex items-start gap-2 text-sm">
+                            <CheckCircle2 className="h-4 w-4 text-primary mt-0.5" />
+                            <span>{point}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button onClick={() => setLessonStage("quiz")} disabled={lessonQuestions.length === 0}>
+                      Start challenge
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowReference((prev) => !prev)}>
+                      {showReference ? "Hide reference" : "Show reference"}
+                    </Button>
+                  </div>
+                  {lessonQuestions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Interactive challenge coming soon.</p>
+                  )}
+                </div>
+              )}
+
+              {lessonStage === "quiz" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Question {questionIndex + 1} / {lessonQuestions.length}</span>
+                    <span>{correctCount} correct</span>
+                  </div>
+                  <Card>
+                    <CardContent className="p-4 space-y-4">
+                      <h3 className="font-semibold">Translate:</h3>
+                      <p className="text-lg font-medium">{activeQuestion?.prompt}</p>
+                      <div className="grid gap-2">
+                        {activeQuestion?.choices.map((choice) => {
+                          const isCorrect = questionStatus !== "idle" && choice === activeQuestion.answer
+                          const isWrongSelection = questionStatus === "wrong" && selectedAnswer === choice
+                          return (
+                            <Button
+                              key={choice}
+                              variant="outline"
+                              className={cn(
+                                "justify-start",
+                                isCorrect && "border-emerald-500 text-emerald-600",
+                                isWrongSelection && "border-rose-500 text-rose-600"
+                              )}
+                              onClick={() => handleLessonAnswer(choice)}
+                              disabled={questionStatus !== "idle"}
+                            >
+                              {choice}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                      {questionStatus !== "idle" && (
+                        <div
+                          className={cn(
+                            "text-sm",
+                            questionStatus === "correct" ? "text-emerald-600" : "text-rose-600"
+                          )}
+                        >
+                          {questionStatus === "correct"
+                            ? "Nice work!"
+                            : `Correct: ${activeQuestion?.answer}`}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={handleNextQuestion} disabled={questionStatus === "idle"}>
+                      {questionIndex + 1 >= lessonQuestions.length ? "Finish" : "Next"}
+                    </Button>
+                    <Button variant="outline" onClick={() => setLessonStage("intro")}>Review mission</Button>
+                  </div>
+                </div>
+              )}
+
+              {lessonStage === "result" && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold">Lesson complete</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Score {correctCount} / {lessonQuestions.length}
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => awardLessonXp(lessonXp, lesson.lessonId, lesson.title)}
+                        disabled={isSavingProgress}
+                      >
+                        Claim {lessonXp} XP
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setLessonStage("intro")
+                          setQuestionIndex(0)
+                          setQuestionStatus("idle")
+                          setSelectedAnswer(null)
+                          setCorrectCount(0)
+                        }}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {showReference && (
+                <div className="space-y-3">
+                  {renderVerbContent(
+                    lesson.content as typeof verbTree.branches[0]["topics"][0]["content"],
+                    lesson.lessonId
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -2123,6 +2576,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   // Main lessons list
   return (
     <div className="space-y-6">
+      {renderPlacementDialog()}
       <Dialog open={completionOpen} onOpenChange={setCompletionOpen}>
         <DialogContent>
           <DialogHeader>
@@ -2134,8 +2588,8 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4">
-            <div className="h-32 w-32 rounded-full bg-secondary flex items-center justify-center">
-              <IgelMascot size={96} mood="celebrate" />
+            <div className="h-36 w-36 flex items-center justify-center">
+              <IgelMascot size={120} mood="celebrate" />
             </div>
             {completionData && (
               <div className="grid w-full gap-3 text-sm">
@@ -2174,41 +2628,65 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
         </p>
       </div>
 
-      {/* Regular Lessons */}
+      {/* Roadmap */}
       <div>
-        <h3 className="font-semibold text-lg mb-4">Foundation Lessons</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          {regularLessons.map((lesson) => (
-            <Card
-              key={lesson.id}
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setSelectedLesson(lesson.id)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded-full text-xs font-medium",
-                        lesson.level === "Beginner" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                      )}>
+        <h3 className="font-semibold text-lg mb-4">Your Roadmap</h3>
+        <div className="relative border-l-2 border-muted pl-6 space-y-6">
+          {regularLessons.map((lesson) => {
+            const isRecommended = lesson.id === recommendedLessonId
+            const lessonXp = calculateLessonXp(lesson.duration)
+            return (
+              <div key={lesson.id} className="relative">
+                <div
+                  className={cn(
+                    "absolute -left-[29px] top-4 h-6 w-6 rounded-full border-2 flex items-center justify-center",
+                    isRecommended
+                      ? "bg-primary border-primary text-primary-foreground"
+                      : "bg-background border-muted-foreground/40"
+                  )}
+                >
+                  {isRecommended ? <Star className="h-3 w-3" /> : <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />}
+                </div>
+                <Card className={cn("transition-all", isRecommended && "border-primary/60 shadow")}
+                >
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 rounded-full text-xs font-medium",
+                          lesson.level === "Beginner" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                        )}
+                      >
                         {lesson.level}
                       </span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {lesson.duration}
                       </span>
+                      <span className="flex items-center gap-1">
+                        <Zap className="h-3 w-3" />
+                        {lessonXp} XP
+                      </span>
+                      {isRecommended && (
+                        <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                          Recommended
+                        </span>
+                      )}
                     </div>
-                    <h4 className="font-medium mb-1">{lesson.title}</h4>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {lesson.description}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    <div>
+                      <h4 className="font-semibold">{lesson.title}</h4>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {lesson.description}
+                      </p>
+                    </div>
+                    <Button size="sm" onClick={() => setSelectedLesson(lesson.id)}>
+                      Start lesson
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )
+          })}
         </div>
       </div>
 
