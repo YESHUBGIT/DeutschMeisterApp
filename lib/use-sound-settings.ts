@@ -7,14 +7,17 @@ const STORAGE_KEY = "soundEnabled"
 const EVENT_NAME = "sound-settings"
 
 export const useSoundSettings = () => {
-  const [enabled, setEnabled] = useState(true)
+  const [enabled, setEnabled] = useState(() => {
+    if (typeof window === "undefined") return true
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+    if (stored !== null) {
+      return stored === "true"
+    }
+    return true
+  })
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored !== null) {
-      setEnabled(stored === "true")
-    }
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<boolean>).detail
       if (typeof detail === "boolean") {

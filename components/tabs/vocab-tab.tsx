@@ -76,6 +76,29 @@ interface VocabWord {
   hooks?: LearningHooks
 }
 
+const InfoTooltip = ({ text, bullets }: { text?: string; bullets?: string[] }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+        <Info className="h-4 w-4" />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent side="top" className="max-w-xs">
+      {text && <p>{text}</p>}
+      {bullets && (
+        <ul className="mt-2 space-y-1">
+          {bullets.map((item) => (
+            <li key={item} className="flex gap-2">
+              <span aria-hidden>•</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </TooltipContent>
+  </Tooltip>
+)
+
 const vocabulary: VocabWord[] = [
   // Personal Pronouns
   { id: 1, german: "ich", english: "I", category: "pronouns", article: null, starred: true, note: "Always lowercase unless starting sentence" },
@@ -762,7 +785,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
   const [activeCategory, setActiveCategory] = useState("all")
   const [localLesson, setLocalLesson] = useState("all")
   const [speakingKey, setSpeakingKey] = useState<string | null>(null)
-  const [speechSupported, setSpeechSupported] = useState(true)
+  const [speechSupported] = useState(() => typeof window !== "undefined" && "speechSynthesis" in window)
   const [germanVoice, setGermanVoice] = useState<SpeechSynthesisVoice | null>(null)
   const [voiceWarning, setVoiceWarning] = useState(false)
   const [selectedWordId, setSelectedWordId] = useState<number | null>(null)
@@ -772,20 +795,46 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
   const [cognateFilter, setCognateFilter] = useState<"all" | CognateTag>("all")
   const [frequencyFilter, setFrequencyFilter] = useState<"all" | FrequencyTag>("all")
   const [confusableFilter, setConfusableFilter] = useState("all")
-  const [statusById, setStatusById] = useState<Record<number, WordStatus>>({})
+  const [statusById, setStatusById] = useState<Record<number, WordStatus>>(() => {
+    if (typeof window === "undefined") return {}
+    try {
+      const storedStatus = window.localStorage.getItem("vocabStatus")
+      if (storedStatus) {
+        return JSON.parse(storedStatus) as Record<number, WordStatus>
+      }
+    } catch (error) {
+      console.error("Failed to read vocab status", error)
+    }
+    return {}
+  })
   const [listMaxHeight, setListMaxHeight] = useState<number | null>(null)
-  const [starredWords, setStarredWords] = useState<number[]>([])
+  const [starredWords, setStarredWords] = useState<number[]>(() => {
+    if (typeof window === "undefined") return []
+    try {
+      const storedStars = window.localStorage.getItem("vocabStars")
+      if (storedStars) {
+        const parsedStars = JSON.parse(storedStars)
+        if (Array.isArray(parsedStars)) {
+          return parsedStars as number[]
+        }
+      }
+    } catch (error) {
+      console.error("Failed to read vocab stars", error)
+    }
+    return []
+  })
   const filtersRef = useRef<HTMLDivElement | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
+  )
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [hasLoadedProgress, setHasLoadedProgress] = useState(false)
+  const hasLoadedProgressRef = useRef(false)
   const { status: authStatus, data: session } = useSession()
 
   const lessonValue = selectedLesson ?? localLesson
   const handleLessonValueChange = onLessonChange ?? setLocalLesson
 
   useEffect(() => {
-    setSpeechSupported(typeof window !== "undefined" && "speechSynthesis" in window)
     return () => {
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel()
@@ -821,16 +870,9 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     if (typeof window === "undefined") return
     const mediaQuery = window.matchMedia("(max-width: 1023px)")
     const updateMobile = () => setIsMobile(mediaQuery.matches)
-    updateMobile()
     mediaQuery.addEventListener("change", updateMobile)
     return () => mediaQuery.removeEventListener("change", updateMobile)
   }, [])
-
-  useEffect(() => {
-    if (!isMobile) {
-      setDetailsOpen(false)
-    }
-  }, [isMobile])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -843,13 +885,13 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
       }
     }
     if (!mediaQuery.matches) {
-      setListMaxHeight(null)
+      requestAnimationFrame(() => setListMaxHeight(null))
       return
     }
     const updateHeight = (height: number) => {
       setListMaxHeight(Math.max(0, Math.round(height)))
     }
-    updateHeight(element.getBoundingClientRect().height)
+    requestAnimationFrame(() => updateHeight(element.getBoundingClientRect().height))
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (entry) {
@@ -884,7 +926,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
           })
           setStatusById(nextStatus)
           setStarredWords(nextStarred)
-          setHasLoadedProgress(true)
+          hasLoadedProgressRef.current = true
         } catch (error) {
           console.error("Failed to load vocab progress", error)
         }
@@ -892,26 +934,11 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
       fetchProgress()
       return
     }
-    try {
-      const storedStatus = window.localStorage.getItem("vocabStatus")
-      const storedStars = window.localStorage.getItem("vocabStars")
-      if (storedStatus) {
-        setStatusById(JSON.parse(storedStatus))
-      }
-      if (storedStars) {
-        const parsedStars = JSON.parse(storedStars)
-        if (Array.isArray(parsedStars)) {
-          setStarredWords(parsedStars)
-        }
-      }
-      setHasLoadedProgress(true)
-    } catch (error) {
-      console.error("Failed to load vocab data", error)
-    }
+    hasLoadedProgressRef.current = true
   }, [authStatus, session?.user?.email])
 
   useEffect(() => {
-    if (typeof window === "undefined" || !hasLoadedProgress) return
+    if (typeof window === "undefined" || !hasLoadedProgressRef.current) return
     if (authStatus !== "authenticated") {
       try {
         window.localStorage.setItem("vocabStatus", JSON.stringify(statusById))
@@ -942,7 +969,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
       }
     }, 600)
     return () => window.clearTimeout(timeout)
-  }, [statusById, starredWords, authStatus, hasLoadedProgress])
+  }, [statusById, starredWords, authStatus])
 
   const toggleStar = (id: number) => {
     setStarredWords(prev => 
@@ -1077,37 +1104,12 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     )
   })
 
-  const InfoTooltip = ({ text, bullets }: { text?: string; bullets?: string[] }) => (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-          <Info className="h-4 w-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs">
-        {text && <p>{text}</p>}
-        {bullets && (
-          <ul className="mt-2 space-y-1">
-            {bullets.map((item) => (
-              <li key={item} className="flex gap-2">
-                <span aria-hidden>•</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </TooltipContent>
-    </Tooltip>
-  )
-
-  useEffect(() => {
-    if (filteredVocab.length === 0) {
-      setSelectedWordId(null)
-      return
+  const selectedWordIdForRender = useMemo(() => {
+    if (filteredVocab.length === 0) return null
+    if (selectedWordId && filteredVocab.some(word => word.id === selectedWordId)) {
+      return selectedWordId
     }
-    if (!selectedWordId || !filteredVocab.some(word => word.id === selectedWordId)) {
-      setSelectedWordId(filteredVocab[0].id)
-    }
+    return filteredVocab[0].id
   }, [filteredVocab, selectedWordId])
 
   const speakText = (key: string, text: string) => {
@@ -1171,7 +1173,8 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
     return Array.from(values).sort((a, b) => a.localeCompare(b))
   }, [])
 
-  const selectedWord = filteredVocab.find(word => word.id === selectedWordId) ?? null
+  const selectedWord = filteredVocab.find(word => word.id === selectedWordIdForRender) ?? null
+  const isDetailsOpen = isMobile ? detailsOpen : false
 
   const renderWordDetails = (word: (typeof vocabulary)[number]) => (
     <div className="space-y-4">
@@ -1670,7 +1673,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
                     }}
                     className={cn(
                       "flex items-start justify-between gap-3 p-4 rounded-lg bg-secondary transition-colors",
-                      selectedWordId === word.id ? "ring-2 ring-primary/30" : "hover:bg-secondary/80"
+                      selectedWordIdForRender === word.id ? "ring-2 ring-primary/30" : "hover:bg-secondary/80"
                     )}
                   >
                     <div className="w-full">
@@ -1956,7 +1959,7 @@ export function VocabTab({ selectedLesson, onLessonChange }: VocabTabProps) {
           </CardContent>
         </Card>
       </div>
-      <Sheet open={detailsOpen && !!selectedWord} onOpenChange={setDetailsOpen}>
+      <Sheet open={isDetailsOpen && !!selectedWord} onOpenChange={setDetailsOpen}>
         <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Word Details</SheetTitle>

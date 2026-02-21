@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import type { TabType } from "@/app/page"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -1531,7 +1531,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     return Math.max(10, Math.round(minutes * 5))
   }
 
-  const loadProgress = async () => {
+  const loadProgress = useCallback(async () => {
     if (authStatus !== "authenticated" && !authDisabled) return
     try {
       const response = await fetch("/api/gamification/progress")
@@ -1557,7 +1557,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     } catch (error) {
       console.error("Failed to load progress", error)
     }
-  }
+  }, [authStatus, authDisabled])
 
   const awardLessonXp = async (xp: number, lessonId?: string, title?: string) => {
     if (authStatus !== "authenticated" && !authDisabled) {
@@ -1702,7 +1702,7 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
     if (authStatus === "authenticated" || authDisabled) {
       loadProgress()
     }
-  }, [authStatus, authDisabled])
+  }, [authStatus, authDisabled, loadProgress])
 
   useEffect(() => {
     if (!dateKey) return
@@ -2069,11 +2069,29 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
   const selectedLessonData = selectedLesson !== null ? regularLessons.find((lesson) => lesson.id === selectedLesson) : null
   const lessonQuestions = useMemo(
     () => (selectedLessonData ? buildLessonQuestions(selectedLessonData) : []),
-    [selectedLessonData?.id]
+    [selectedLessonData]
   )
   const activeQuestion = lessonQuestions[questionIndex]
   const roadmapItems = useMemo(() => {
-    return regularLessons.map((lesson) => ({ type: "lesson" as const, lesson }))
+    return [
+      ...regularLessons.map((lesson) => ({ type: "lesson" as const, lesson })),
+      {
+        type: "tree" as const,
+        treeId: "verbs" as const,
+        title: "Verbs Tree",
+        description: "Master all verb concepts: tenses, moods, passive voice, and more.",
+        tag: "Intermediate",
+        accent: "bg-primary/10 text-primary",
+      },
+      {
+        type: "tree" as const,
+        treeId: "cases" as const,
+        title: "Cases Tree",
+        description: "Nominativ, Akkusativ, Dativ, Genitiv and how they change words.",
+        tag: "Intermediate",
+        accent: "bg-amber-100 text-amber-700",
+      },
+    ]
   }, [])
 
   // Render verb lesson content
@@ -2135,92 +2153,6 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
           Core Concept
         </h4>
         <p className="text-foreground/80">{content.concept}</p>
-      </div>
-
-      {/* Intermediate Trees */}
-      <div className="space-y-4">
-        <div>
-          <h3 className="font-semibold text-lg">Intermediate Trees</h3>
-          <p className="text-sm text-muted-foreground">Deep dives once you finish the roadmap lessons.</p>
-        </div>
-
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-muted-foreground">Verb Tree</h4>
-            <Card
-              className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/5 border-primary/30 cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => openTree("verbs")}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-primary text-primary-foreground p-3 rounded-full">
-                      <GitBranch className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-primary">VERBS - The Complete Tree</h3>
-                      <p className="text-muted-foreground">
-                        Master all verb concepts: tenses, moods, passive voice, and more.
-                      </p>
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <Layers className="h-4 w-4" />
-                          6 Levels
-                        </span>
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <BookText className="h-4 w-4" />
-                          20+ Topics
-                        </span>
-                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
-                          Featured
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-6 w-6 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-muted-foreground">Cases Tree</h4>
-            <Card
-              className="bg-gradient-to-r from-amber-100/70 via-amber-50 to-yellow-100/60 border-amber-300/60 cursor-pointer hover:shadow-lg transition-all"
-              onClick={() => openTree("cases")}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-amber-500 text-white p-3 rounded-full">
-                      <Layers className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-amber-700">CASES - The Complete Tree</h3>
-                      <p className="text-muted-foreground">
-                        Nominativ, Akkusativ, Dativ, Genitiv and how they change words.
-                      </p>
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <Layers className="h-4 w-4" />
-                          {casesTree.branches.length} Levels
-                        </span>
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <BookText className="h-4 w-4" />
-                          {casesTopicCount} Topics
-                        </span>
-                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                          New
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-6 w-6 text-amber-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
       </div>
 
       {/* Key Points */}
@@ -2856,9 +2788,10 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
           <div className="space-y-10">
           {roadmapItems.map((item, index) => {
             const isLeft = index % 2 === 0
-            const lesson = item.lesson
-            const isRecommended = lesson.id === recommendedLessonId
-            const lessonXp = calculateLessonXp(lesson.duration)
+            if (item.type === "lesson") {
+              const lesson = item.lesson
+              const isRecommended = lesson.id === recommendedLessonId
+              const lessonXp = calculateLessonXp(lesson.duration)
             return (
               <div key={`lesson-${lesson.id}`} className="relative grid gap-6 md:grid-cols-2">
                 <div
@@ -2914,6 +2847,43 @@ export function LessonsTab({ onNavigate, onNavigateWithLesson }: LessonsTabProps
                           Start lesson
                         </Button>
                         <span className="text-xs text-muted-foreground">Next stop</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )
+            }
+
+            return (
+              <div key={`tree-${item.treeId}`} className="relative grid gap-6 md:grid-cols-2">
+                <div
+                  className={cn(
+                    "absolute left-4 md:left-1/2 top-6 h-7 w-7 -translate-y-1/2 rounded-full border-2 flex items-center justify-center z-10",
+                    "bg-background border-muted-foreground/40"
+                  )}
+                >
+                  <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className={cn(isLeft ? "md:pr-10" : "md:col-start-2 md:pl-10")}>
+                  <Card className="transition-all bg-gradient-to-br from-background to-muted/20">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", item.accent)}>
+                          {item.tag}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">{item.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {item.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openTree(item.treeId)}>
+                          Open tree
+                        </Button>
+                        <span className="text-xs text-muted-foreground">Branch out</span>
                       </div>
                     </CardContent>
                   </Card>
