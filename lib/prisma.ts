@@ -18,7 +18,7 @@ function loadPrismaClient(): any {
   try {
     // eval("require") is invisible to Turbopack's static analysis
     const dynamicRequire = eval("require") as NodeRequire
-    const mod = dynamicRequire("@prisma/client")
+    const mod = dynamicRequire("../generated/prisma")
     const client = new mod.PrismaClient({ log: ["error", "warn"] })
     if (process.env.NODE_ENV !== "production") {
       globalForPrisma.__prisma = client
