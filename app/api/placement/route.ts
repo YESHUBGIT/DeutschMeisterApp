@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { Prisma } from "@prisma/client"
 import { authOptions } from "@/auth"
 import { prisma } from "@/lib/prisma"
 
@@ -125,20 +125,20 @@ export async function POST(request: Request) {
     })
   }
 
-  const updateData = {
+  const updateData: any = {
     placementLevel,
     placementSource,
     placementScore,
     placementCompletedAt,
-  } as Prisma.UserProgressUpdateInput
+  }
 
-  const createData = {
+  const createData: any = {
     userId,
     placementLevel,
     placementSource,
     placementScore,
     placementCompletedAt,
-  } as Prisma.UserProgressUncheckedCreateInput
+  }
 
   const progress = await prisma.userProgress.upsert({
     where: { userId },

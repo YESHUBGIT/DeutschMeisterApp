@@ -90,38 +90,42 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
         </div>
 
         {/* Mobile Navigation */}
-        <nav className="md:hidden flex items-center gap-2 pb-3 overflow-x-auto">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
-                  activeTab === tab.id
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            )
-          })}
-          <Button variant="ghost" size="icon" className="shrink-0" onClick={toggle} aria-label="Toggle sound">
-            {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-          </Button>
-          {isAuthed ? (
-            <Button variant="outline" size="sm" className="shrink-0" onClick={() => signOut({ callbackUrl: "/auth/signin" })}>
-              Sign out
+        <div className="md:hidden flex items-center gap-2 pb-3">
+          <nav className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => onTabChange(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap shrink-0",
+                    activeTab === tab.id
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </nav>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={toggle} aria-label="Toggle sound">
+              {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
-          ) : (
-            <Button asChild variant="outline" size="sm" className="shrink-0">
-              <Link href="/auth/signin">Sign in</Link>
-            </Button>
-          )}
-        </nav>
+            {isAuthed ? (
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => signOut({ callbackUrl: "/auth/signin" })}>
+                Sign out
+              </Button>
+            ) : (
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <Link href="/auth/signin">Sign in</Link>
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </header>
   )

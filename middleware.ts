@@ -17,5 +17,5 @@ export default function middleware(req: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|auth/signin).*)"],
+  matcher: ["/((?!api/auth|api/tutor/config|_next/static|_next/image|favicon.ico|icon.*|apple-icon|igel|auth/signin).*)"],
 }
