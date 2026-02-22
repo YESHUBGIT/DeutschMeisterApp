@@ -1,39 +1,39 @@
 "use client"
 
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Check, X, RotateCcw, Trophy, ChevronRight, Brain, Target, Zap, BookOpen, Shuffle, Volume2 } from "lucide-react"
+import {
+  Check, X, RotateCcw, Trophy, ChevronRight, ChevronLeft,
+  Brain, Target, Zap, BookOpen, Shuffle, Volume2, Flame, ListFilter,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getAllPracticeExercises, getLessonNames, type PracticeExercise } from "@/lib/lesson-content"
+import { playSound } from "@/lib/sound"
 
 /* ═══════════════════════════════════════
-   Unified Practice Tab
-   Merges interactive lesson exercises
-   with filterable lesson tags
+   Practice Tab
    ═══════════════════════════════════════ */
 
 type ExerciseCategory = "all" | "multiple-choice" | "fill-blank" | "reorder" | "translation"
+type PracticeMode = "browse" | "session" | "complete"
 
-const CATEGORIES: { id: ExerciseCategory; label: string; icon: typeof Brain; desc: string }[] = [
-  { id: "all",             label: "All Types",    icon: Shuffle,  desc: "Mix of every exercise type" },
-  { id: "multiple-choice", label: "Quiz",         icon: Zap,      desc: "Pick the right answer" },
-  { id: "fill-blank",      label: "Fill Blank",   icon: Target,   desc: "Complete the sentence" },
-  { id: "reorder",         label: "Word Order",   icon: BookOpen,  desc: "Arrange words correctly" },
-  { id: "translation",     label: "Translate",    icon: Brain,    desc: "Type the translation" },
+const CATEGORIES: { id: ExerciseCategory; label: string; icon: typeof Brain; color: string }[] = [
+  { id: "all",             label: "All Types",   icon: Shuffle,  color: "text-primary" },
+  { id: "multiple-choice", label: "Quiz",        icon: Zap,      color: "text-amber-400" },
+  { id: "fill-blank",      label: "Fill Blank",  icon: Target,   color: "text-emerald-400" },
+  { id: "reorder",         label: "Word Order",  icon: BookOpen,  color: "text-cyan-400" },
+  { id: "translation",     label: "Translate",   icon: Brain,    color: "text-purple-400" },
 ]
 
-/* ── TTS helper ── */
+/* ── Helpers ── */
 function speakDE(text: string) {
   if (typeof window === "undefined" || !window.speechSynthesis) return
   window.speechSynthesis.cancel()
   const u = new SpeechSynthesisUtterance(text)
-  u.lang = "de-DE"
-  u.rate = 0.85
-  const voices = window.speechSynthesis.getVoices()
-  const de = voices.find(v => v.lang.startsWith("de"))
+  u.lang = "de-DE"; u.rate = 0.85
+  const de = window.speechSynthesis.getVoices().find(v => v.lang.startsWith("de"))
   if (de) u.voice = de
   window.speechSynthesis.speak(u)
 }
@@ -42,16 +42,22 @@ function normalizeAnswer(s: string): string {
   return s.toLowerCase().replace(/\s+([?!.,;:])/g, "$1").replace(/\s+/g, " ").trim()
 }
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]] }
+  return a
+}
+
 interface TrainTabProps {
   selectedLesson?: string
   onLessonChange?: (lessonId: string) => void
 }
 
 export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
-  /* ── State ── */
+  const [mode, setMode] = useState<PracticeMode>("browse")
   const [category, setCategory] = useState<ExerciseCategory>("all")
-  const [localLesson, setLocalLesson] = useState("all")
-  const [exerciseStarted, setExerciseStarted] = useState(false)
+  const [lessonFilter, setLessonFilter] = useState(selectedLesson ?? "all")
+  const [sessionExercises, setSessionExercises] = useState<PracticeExercise[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
   const [userAnswer, setUserAnswer] = useState("")
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
@@ -62,221 +68,229 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
   const [score, setScore] = useState({ correct: 0, total: 0 })
   const [showHint, setShowHint] = useState(false)
 
-  const lessonValue = selectedLesson ?? localLesson
-  const handleLessonValueChange = onLessonChange ?? setLocalLesson
+  useEffect(() => {
+    if (selectedLesson && selectedLesson !== lessonFilter) {
+      setLessonFilter(selectedLesson)
+    }
+  }, [selectedLesson, lessonFilter])
 
-  /* ── Build exercise list ── */
   const allExercises = useMemo(() => getAllPracticeExercises(), [])
   const lessonNames = useMemo(() => getLessonNames(), [])
 
-  const filtered = useMemo(() => {
-    let list = allExercises
-    if (lessonValue !== "all") list = list.filter(e => e.lessonId === lessonValue)
-    if (category !== "all") list = list.filter(e => e.kind === category)
-    return list
-  }, [allExercises, lessonValue, category])
+  /* counts by lesson */
+  const lessonCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const ex of allExercises) m[ex.lessonId] = (m[ex.lessonId] ?? 0) + 1
+    return m
+  }, [allExercises])
 
-  const currentExercise: PracticeExercise | undefined = filtered[currentIdx]
-  const isLast = currentIdx >= filtered.length - 1
+  /* counts by category for active lesson filter */
+  const catCounts = useMemo(() => {
+    const base = lessonFilter === "all" ? allExercises : allExercises.filter(e => e.lessonId === lessonFilter)
+    const c: Record<string, number> = { all: base.length }
+    for (const cat of CATEGORIES) if (cat.id !== "all") c[cat.id] = base.filter(e => e.kind === cat.id).length
+    return c
+  }, [allExercises, lessonFilter])
 
-  /* ── Counts per category ── */
-  const categoryCounts = useMemo(() => {
-    const base = lessonValue === "all" ? allExercises : allExercises.filter(e => e.lessonId === lessonValue)
-    const counts: Record<string, number> = { all: base.length }
-    for (const cat of CATEGORIES) {
-      if (cat.id !== "all") counts[cat.id] = base.filter(e => e.kind === cat.id).length
-    }
-    return counts
-  }, [allExercises, lessonValue])
+  const currentExercise: PracticeExercise | undefined = sessionExercises[currentIdx]
 
-  /* ── Handlers ── */
-  const resetAll = useCallback(() => {
-    setExerciseStarted(false)
-    setCurrentIdx(0)
-    setUserAnswer("")
-    setSelectedOption(null)
-    setReorderPicked([])
-    setReorderPool([])
-    setShowResult(false)
-    setIsCorrect(false)
-    setScore({ correct: 0, total: 0 })
-    setShowHint(false)
-  }, [])
-
-  const startExercises = useCallback((cat: ExerciseCategory) => {
+  /* ── Start session ── */
+  const startSession = useCallback((cat: ExerciseCategory, lesson: string) => {
+    let pool = allExercises
+    if (lesson !== "all") pool = pool.filter(e => e.lessonId === lesson)
+    if (cat !== "all") pool = pool.filter(e => e.kind === cat)
+    const shuffled = shuffleArray(pool)
+    setSessionExercises(shuffled)
     setCategory(cat)
     setCurrentIdx(0)
     setScore({ correct: 0, total: 0 })
-    setExerciseStarted(true)
-    setShowResult(false)
     setUserAnswer("")
     setSelectedOption(null)
+    setShowResult(false)
     setShowHint(false)
-  }, [])
-
-  /* Init reorder pool when exercise changes */
-  const initReorder = useCallback((ex: PracticeExercise) => {
-    if (ex.kind === "reorder" && ex.words) {
-      const shuffled = [...ex.words].sort(() => Math.random() - 0.5)
-      setReorderPool(shuffled)
+    if (shuffled[0]?.kind === "reorder" && shuffled[0].words) {
+      setReorderPool(shuffleArray(shuffled[0].words))
       setReorderPicked([])
     }
+    setMode("session")
+  }, [allExercises])
+
+  const handleLessonPick = useCallback((id: string) => {
+    setLessonFilter(id)
+    if (onLessonChange) onLessonChange(id)
+  }, [onLessonChange])
+
+  const backToBrowse = useCallback(() => {
+    setMode("browse")
+    setSessionExercises([])
   }, [])
 
+  /* ── Check answer ── */
   const checkAnswer = useCallback(() => {
     if (!currentExercise) return
     let correct = false
-    const ex = currentExercise
-
-    if (ex.kind === "translation") {
-      correct = normalizeAnswer(userAnswer) === normalizeAnswer(ex.answer)
-    } else if (ex.kind === "reorder") {
-      correct = normalizeAnswer(reorderPicked.join(" ")) === normalizeAnswer(ex.answer)
-    } else if (ex.kind === "multiple-choice" || ex.kind === "fill-blank") {
-      correct = selectedOption === ex.answer
+    if (currentExercise.kind === "translation") {
+      correct = normalizeAnswer(userAnswer) === normalizeAnswer(currentExercise.answer)
+    } else if (currentExercise.kind === "reorder") {
+      correct = normalizeAnswer(reorderPicked.join(" ")) === normalizeAnswer(currentExercise.answer)
+    } else {
+      correct = selectedOption === currentExercise.answer
     }
-
     setIsCorrect(correct)
     setShowResult(true)
     setScore(p => ({ correct: correct ? p.correct + 1 : p.correct, total: p.total + 1 }))
+    playSound(correct ? "correct" : "sad")
   }, [currentExercise, userAnswer, reorderPicked, selectedOption])
 
+  /* ── Next exercise ── */
   const nextExercise = useCallback(() => {
-    if (isLast) return
-    const nextIdx = currentIdx + 1
-    setCurrentIdx(nextIdx)
+    const next = currentIdx + 1
+    if (next >= sessionExercises.length) {
+      setMode("complete")
+      playSound("complete")
+      return
+    }
+    setCurrentIdx(next)
     setUserAnswer("")
     setSelectedOption(null)
     setShowResult(false)
     setShowHint(false)
-    const nextEx = filtered[nextIdx]
-    if (nextEx) initReorder(nextEx)
-  }, [isLast, currentIdx, filtered, initReorder])
-
-  const handleLessonChange = useCallback((v: string) => {
-    handleLessonValueChange(v)
-    resetAll()
-  }, [handleLessonValueChange, resetAll])
-
-  /* ── Auto-init reorder when exercise starts or changes ── */
-  const startWithInit = useCallback((cat: ExerciseCategory) => {
-    startExercises(cat)
-    // We need to find the first exercise of this category
-    const base = lessonValue === "all" ? allExercises : allExercises.filter(e => e.lessonId === lessonValue)
-    const list = cat === "all" ? base : base.filter(e => e.kind === cat)
-    if (list[0]?.kind === "reorder" && list[0].words) {
-      setReorderPool([...list[0].words].sort(() => Math.random() - 0.5))
+    const nex = sessionExercises[next]
+    if (nex?.kind === "reorder" && nex.words) {
+      setReorderPool(shuffleArray(nex.words))
       setReorderPicked([])
     }
-  }, [startExercises, lessonValue, allExercises])
+  }, [currentIdx, sessionExercises])
 
-  /* ═══════════════════════════════════════
-     RENDER: Category Selection
-     ═══════════════════════════════════════ */
-  if (!exerciseStarted) {
+  /* ═══════════════ BROWSE MODE ═══════════════ */
+  if (mode === "browse") {
     return (
-      <div className="space-y-5">
-        <div className="text-center space-y-2 py-4">
+      <div className="space-y-5 pb-6">
+        {/* Header */}
+        <div className="text-center space-y-1 py-3">
           <h1 className="text-2xl font-bold text-foreground">Practice</h1>
-          <p className="text-sm text-muted-foreground">
-            Sharpen your skills with exercises from your lessons
-          </p>
+          <p className="text-sm text-muted-foreground">{allExercises.length} exercises across {lessonNames.length} lessons</p>
         </div>
 
-        {/* Lesson Filter */}
-        <div className="p-3 rounded-xl bg-card border border-border">
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
-            Filter by lesson
-          </label>
-          <Select value={lessonValue} onValueChange={handleLessonChange}>
-            <SelectTrigger className="rounded-lg bg-secondary border-border">
-              <SelectValue placeholder="All Lessons" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Lessons</SelectItem>
-              {lessonNames.map(ln => (
-                <SelectItem key={ln.id} value={ln.id}>{ln.title}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Quick Mix */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => startSession("all", lessonFilter)}
+          className="w-full p-4 rounded-2xl bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 flex items-center gap-4"
+        >
+          <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+            <Flame className="w-6 h-6 text-primary" />
+          </div>
+          <div className="text-left flex-1 min-w-0">
+            <p className="text-base font-bold text-foreground">Quick Mix</p>
+            <p className="text-xs text-muted-foreground">
+              Random exercises {lessonFilter !== "all" ? "from this lesson" : "from all lessons"}
+              {" \u2022 "}{catCounts.all ?? 0} available
+            </p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-primary shrink-0" />
+        </motion.button>
+
+        {/* Lesson Filter Chips */}
+        <div>
+          <div className="flex items-center gap-2 mb-2.5">
+            <ListFilter className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">By Lesson</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleLessonPick("all")}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+                lessonFilter === "all"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/50"
+              )}
+            >
+              All ({allExercises.length})
+            </button>
+            {lessonNames.map(ln => (
+              <button
+                key={ln.id}
+                onClick={() => handleLessonPick(ln.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+                  lessonFilter === ln.id
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:border-primary/50"
+                )}
+              >
+                {ln.title} ({lessonCounts[ln.id] ?? 0})
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Category Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          {CATEGORIES.map(cat => {
-            const Icon = cat.icon
-            const count = categoryCounts[cat.id] ?? 0
-            return (
-              <motion.button
-                key={cat.id}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => count > 0 && startWithInit(cat.id)}
-                disabled={count === 0}
-                className={cn(
-                  "p-4 rounded-xl border text-left transition-all space-y-2",
-                  count > 0
-                    ? "bg-card border-border hover:border-primary/50 cursor-pointer"
-                    : "bg-card/50 border-border/50 opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-primary" />
-                </div>
-                <p className="text-sm font-bold text-foreground">{cat.label}</p>
-                <p className="text-[11px] text-muted-foreground leading-snug">{cat.desc}</p>
-                <p className="text-xs font-medium text-primary">{count} exercises</p>
-              </motion.button>
-            )
-          })}
+        <div>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5">By Type</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {CATEGORIES.filter(c => c.id !== "all").map(cat => {
+              const Icon = cat.icon
+              const count = catCounts[cat.id] ?? 0
+              return (
+                <motion.button
+                  key={cat.id}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => count > 0 && startSession(cat.id, lessonFilter)}
+                  disabled={count === 0}
+                  className={cn(
+                    "p-3.5 rounded-xl border text-left transition-all",
+                    count > 0
+                      ? "bg-card border-border hover:border-primary/40 cursor-pointer"
+                      : "bg-card/40 border-border/40 opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5 mb-1.5">
+                    <Icon className={cn("w-4.5 h-4.5", cat.color)} />
+                    <span className="text-sm font-bold text-foreground">{cat.label}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{count} exercises</span>
+                </motion.button>
+              )
+            })}
+          </div>
         </div>
       </div>
     )
   }
 
-  /* ═══════════════════════════════════════
-     RENDER: Completion Screen
-     ═══════════════════════════════════════ */
-  if (showResult && isLast) {
-    const pct = filtered.length > 0 ? Math.round((score.correct / filtered.length) * 100) : 0
+  /* ═══════════════ COMPLETE MODE ═══════════════ */
+  if (mode === "complete") {
+    const pct = sessionExercises.length > 0 ? Math.round((score.correct / sessionExercises.length) * 100) : 0
+    const great = pct >= 70
     return (
-      <div className="space-y-6 py-4">
+      <div className="space-y-6 py-6">
         <motion.div
           className="mx-auto w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center"
-          initial={{ scale: 0.5, rotate: -10 }}
+          initial={{ scale: 0.4, rotate: -15 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 200 }}
         >
-          <Trophy className="w-10 h-10 text-primary" />
+          <Trophy className={cn("w-10 h-10", great ? "text-primary" : "text-accent")} />
         </motion.div>
-
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold text-foreground">Practice Complete!</h2>
           <motion.p
-            className={cn("text-4xl font-black tabular-nums", pct >= 70 ? "text-success" : "text-accent")}
+            className={cn("text-4xl font-black tabular-nums", great ? "text-success" : "text-accent")}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", delay: 0.15 }}
           >
             {pct}%
           </motion.p>
-          <p className="text-sm text-muted-foreground">
-            {score.correct} of {filtered.length} correct
-          </p>
+          <p className="text-sm text-muted-foreground">{score.correct} of {sessionExercises.length} correct</p>
         </div>
-
         <div className="flex gap-2">
-          <Button variant="outline" className="rounded-xl" onClick={resetAll}>
-            <RotateCcw className="w-4 h-4 mr-1" /> Back
+          <Button variant="outline" className="rounded-xl" onClick={backToBrowse}>
+            <ChevronLeft className="w-4 h-4 mr-1" /> Back
           </Button>
-          <Button className="flex-1 rounded-xl font-bold" onClick={() => {
-            setCurrentIdx(0)
-            setScore({ correct: 0, total: 0 })
-            setShowResult(false)
-            setUserAnswer("")
-            setSelectedOption(null)
-            setShowHint(false)
-            if (filtered[0]) initReorder(filtered[0])
-          }}>
+          <Button className="flex-1 rounded-xl font-bold" onClick={() => startSession(category, lessonFilter)}>
             <RotateCcw className="w-4 h-4 mr-1" /> Retry
           </Button>
         </div>
@@ -284,77 +298,73 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
     )
   }
 
-  /* ═══════════════════════════════════════
-     RENDER: No Exercises
-     ═══════════════════════════════════════ */
+  /* ═══════════════ SESSION MODE ═══════════════ */
   if (!currentExercise) {
     return (
-      <div className="space-y-4 py-8 text-center">
+      <div className="text-center py-12 space-y-3">
         <p className="text-lg font-bold text-foreground">No exercises found</p>
-        <p className="text-sm text-muted-foreground">Try a different lesson or category.</p>
-        <Button variant="outline" onClick={resetAll} className="rounded-xl">
-          <ChevronRight className="w-4 h-4 mr-1 rotate-180" /> Back
+        <p className="text-sm text-muted-foreground">Try a different filter.</p>
+        <Button variant="outline" onClick={backToBrowse} className="rounded-xl">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back
         </Button>
       </div>
     )
   }
 
-  /* ═══════════════════════════════════════
-     RENDER: Exercise
-     ═══════════════════════════════════════ */
+  const progress = ((currentIdx + 1) / sessionExercises.length) * 100
+
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Session header */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={resetAll} className="text-muted-foreground">
-          <ChevronRight className="w-4 h-4 mr-1 rotate-180" /> Back
+        <Button variant="ghost" size="sm" onClick={backToBrowse} className="text-muted-foreground -ml-2">
+          <ChevronLeft className="w-4 h-4 mr-0.5" /> Exit
         </Button>
-        <span className="text-xs text-muted-foreground font-medium tabular-nums">
-          {currentIdx + 1} / {filtered.length}
-        </span>
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
-          {currentExercise.kind}
+        <span className="text-xs font-medium text-muted-foreground tabular-nums">
+          {currentIdx + 1} / {sessionExercises.length}
         </span>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress */}
       <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
         <motion.div
-          className="h-full bg-primary"
-          initial={{ width: 0 }}
-          animate={{ width: `${((currentIdx + 1) / filtered.length) * 100}%` }}
+          className="h-full bg-primary rounded-full"
+          animate={{ width: `${progress}%` }}
           transition={{ type: "spring", stiffness: 200, damping: 25 }}
         />
       </div>
 
-      {/* Lesson tag */}
-      <div className="flex items-center gap-2">
+      {/* Tags */}
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-          {currentExercise.lessonId.replace(/-/g, " ")}
+          {currentExercise.lessonTitle}
+        </span>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
+          {currentExercise.kind.replace("-", " ")}
         </span>
       </div>
 
       <AnimatePresence mode="wait">
         <motion.div
-          key={`${currentIdx}-${category}`}
+          key={`ex-${currentIdx}`}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
+          transition={{ duration: 0.18 }}
           className="space-y-4"
         >
-          {/* Prompt */}
+          {/* Prompt card */}
           <div className="p-4 rounded-xl bg-card border border-border">
             <div className="flex items-start justify-between gap-2">
               <p className="text-base font-semibold text-foreground leading-relaxed flex-1">{currentExercise.prompt}</p>
-              {currentExercise.kind !== "translation" && (
-                <button onClick={() => speakDE(currentExercise.answer)} className="shrink-0 p-1 text-muted-foreground hover:text-primary">
-                  <Volume2 className="w-4 h-4" />
-                </button>
-              )}
+              <button onClick={() => speakDE(currentExercise.answer)} className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                <Volume2 className="w-4 h-4" />
+              </button>
             </div>
             {showHint && currentExercise.explanation && (
-              <p className="mt-2 text-xs text-muted-foreground italic">{currentExercise.explanation}</p>
+              <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-2 text-xs text-muted-foreground italic border-t border-border pt-2">
+                {currentExercise.explanation}
+              </motion.p>
             )}
           </div>
 
@@ -370,7 +380,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
                   className={cn(
                     "w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all",
                     !showResult && selectedOption === opt
-                      ? "border-primary bg-primary/10 text-foreground"
+                      ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/30"
                       : !showResult
                         ? "border-border bg-card text-foreground hover:border-primary/40"
                         : opt === currentExercise.answer
@@ -389,7 +399,8 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
           {/* ── Translation ── */}
           {currentExercise.kind === "translation" && (
             <Input
-              placeholder="Type your answer..."
+              autoFocus
+              placeholder="Type your translation..."
               value={userAnswer}
               onChange={e => setUserAnswer(e.target.value)}
               onKeyDown={e => e.key === "Enter" && userAnswer.trim() && !showResult && checkAnswer()}
@@ -401,33 +412,31 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
           {/* ── Reorder ── */}
           {currentExercise.kind === "reorder" && (
             <div className="space-y-3">
-              {/* Picked words (answer area) */}
-              <div className="min-h-[48px] p-3 rounded-xl border-2 border-dashed border-border bg-card/50 flex flex-wrap gap-2">
+              <div className="min-h-[52px] p-3 rounded-xl border-2 border-dashed border-border bg-card/50 flex flex-wrap gap-2 items-center">
                 {reorderPicked.length === 0 && (
-                  <span className="text-xs text-muted-foreground">Tap words below to build the sentence</span>
+                  <span className="text-xs text-muted-foreground">Tap words to build the sentence</span>
                 )}
                 {reorderPicked.map((w, i) => (
                   <motion.button
-                    key={`picked-${i}`}
-                    layoutId={`word-${w}-${i}`}
+                    key={`p-${i}-${w}`}
+                    layout
                     whileTap={{ scale: 0.9 }}
                     onClick={() => {
                       if (showResult) return
                       setReorderPicked(p => p.filter((_, idx) => idx !== i))
                       setReorderPool(p => [...p, w])
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
+                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium shadow-sm"
                   >
                     {w}
                   </motion.button>
                 ))}
               </div>
-              {/* Pool */}
               <div className="flex flex-wrap gap-2 justify-center">
                 {reorderPool.map((w, i) => (
                   <motion.button
-                    key={`pool-${i}`}
-                    layoutId={`pool-${w}-${i}`}
+                    key={`r-${i}-${w}`}
+                    layout
                     whileTap={{ scale: 0.9 }}
                     onClick={() => {
                       if (showResult) return
@@ -443,7 +452,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
             </div>
           )}
 
-          {/* ── Result Feedback ── */}
+          {/* ── Feedback ── */}
           {showResult && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -461,11 +470,11 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
               </div>
               <div className="space-y-1 min-w-0">
                 <p className={cn("text-sm font-bold", isCorrect ? "text-success" : "text-destructive")}>
-                  {isCorrect ? "Correct!" : "Not quite"}
+                  {isCorrect ? "Richtig!" : "Not quite"}
                 </p>
                 {!isCorrect && (
                   <p className="text-xs text-muted-foreground">
-                    Correct answer: <strong className="text-foreground">{currentExercise.answer}</strong>
+                    Correct: <strong className="text-foreground">{currentExercise.answer}</strong>
                   </p>
                 )}
                 {currentExercise.explanation && (
@@ -476,7 +485,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
           )}
 
           {/* ── Actions ── */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-1">
             {!showResult && (
               <>
                 <Button variant="ghost" size="sm" onClick={() => setShowHint(h => !h)} className="text-xs text-muted-foreground">
@@ -495,14 +504,10 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
                 </Button>
               </>
             )}
-            {showResult && !isLast && (
+            {showResult && (
               <Button onClick={nextExercise} className="flex-1 rounded-xl font-bold">
-                Next <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            )}
-            {showResult && isLast && (
-              <Button onClick={() => setShowResult(true)} className="flex-1 rounded-xl font-bold">
-                See Results <Trophy className="w-4 h-4 ml-1" />
+                {currentIdx >= sessionExercises.length - 1 ? "See Results" : "Next"}
+                <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             )}
           </div>

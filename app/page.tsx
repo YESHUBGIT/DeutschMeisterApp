@@ -97,9 +97,19 @@ export default function Home() {
     setActiveTab("practice")
   }, [])
 
-  /* SSR/hydration guard - render nothing dependent on localStorage until mounted */
+  /* SSR/hydration guard -- must match exact root structure to avoid mismatch */
   if (!mounted) {
-    return <div className="min-h-dvh bg-background" />
+    return (
+      <div className="min-h-dvh bg-background flex flex-col">
+        <header className="sticky top-0 z-40 glass-card pt-safe">
+          <div className="flex items-center gap-3 px-4 py-2.5 max-w-lg mx-auto">
+            <div className="shrink-0 w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center" />
+            <div className="flex-1" />
+          </div>
+        </header>
+        <main className="flex-1" />
+      </div>
+    )
   }
 
   /* Lesson player gate */
