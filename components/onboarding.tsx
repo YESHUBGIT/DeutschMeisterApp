@@ -13,7 +13,6 @@ import type {
 } from "@/lib/use-learner-profile"
 import { cn } from "@/lib/utils"
 
-/* ── Step definitions ── */
 interface Option<T extends string> {
   value: T
   label: string
@@ -25,13 +24,13 @@ const purposeOptions: Option<Purpose>[] = [
   { value: "work", label: "Work", desc: "Office, meetings, emails", icon: Briefcase },
   { value: "travel", label: "Travel", desc: "Navigate, order, explore", icon: Plane },
   { value: "study", label: "Study", desc: "University, academic", icon: GraduationCap },
-  { value: "relocation", label: "Relocation", desc: "Moving to Germany/AT/CH", icon: Home },
+  { value: "relocation", label: "Relocation", desc: "Moving to DACH region", icon: Home },
   { value: "exams", label: "Exams", desc: "Goethe / TELC prep", icon: ClipboardCheck },
   { value: "daily", label: "Daily Life", desc: "Everyday conversations", icon: Coffee },
 ]
 
 const levelOptions: Option<Level>[] = [
-  { value: "new", label: "Complete Beginner", desc: "I know nothing", icon: Sparkles },
+  { value: "new", label: "Complete Beginner", desc: "Starting from zero", icon: Sparkles },
   { value: "a1", label: "A1 - Beginner", desc: "Basic phrases", icon: Languages },
   { value: "a2", label: "A2 - Elementary", desc: "Simple conversations", icon: Languages },
   { value: "b1", label: "B1 - Intermediate", desc: "Everyday topics", icon: Languages },
@@ -60,7 +59,6 @@ const regionOptions: Option<Region>[] = [
   { value: "none", label: "No Preference", desc: "Standard German", icon: Globe },
 ]
 
-/* ── Onboarding Props ── */
 interface OnboardingProps {
   onComplete: (answers: {
     purpose: Purpose
@@ -75,15 +73,14 @@ interface OnboardingProps {
 const TOTAL_STEPS = 6
 
 const slideVariants = {
-  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+  enter: (dir: number) => ({ x: dir > 0 ? "80%" : "-80%", opacity: 0 }),
   center: { x: 0, opacity: 1 },
-  exit: (dir: number) => ({ x: dir > 0 ? "-50%" : "50%", opacity: 0 }),
+  exit: (dir: number) => ({ x: dir > 0 ? "-40%" : "40%", opacity: 0 }),
 }
 
 export function Onboarding({ onComplete }: OnboardingProps) {
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
-
   const [purpose, setPurpose] = useState<Purpose | null>(null)
   const [level, setLevel] = useState<Level | null>(null)
   const [time, setTime] = useState<TimeCommitment | null>(null)
@@ -91,97 +88,69 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [region, setRegion] = useState<Region | null>(null)
   const [deadline, setDeadline] = useState("")
 
-  const goNext = useCallback(() => {
-    setDir(1)
-    setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1))
-  }, [])
+  const goNext = useCallback(() => { setDir(1); setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1)) }, [])
+  const goBack = useCallback(() => { setDir(-1); setStep((s) => Math.max(s - 1, 0)) }, [])
 
-  const goBack = useCallback(() => {
-    setDir(-1)
-    setStep((s) => Math.max(s - 1, 0))
-  }, [])
-
-  const canContinue = () => {
-    switch (step) {
-      case 0: return !!purpose
-      case 1: return !!level
-      case 2: return !!time
-      case 3: return !!style
-      case 4: return !!region
-      case 5: return true
-      default: return false
-    }
-  }
+  const canFinish = !!purpose && !!level && !!time && !!style && !!region
 
   const handleFinish = useCallback(() => {
     if (purpose && level && time && style && region) {
-      onComplete({
-        purpose,
-        level,
-        timeCommitment: time,
-        learningStyle: style,
-        region,
-        deadline: deadline || "none",
-      })
+      onComplete({ purpose, level, timeCommitment: time, learningStyle: style, region, deadline: deadline || "none" })
     }
   }, [purpose, level, time, style, region, deadline, onComplete])
 
-  const stepTitles = [
+  const titles = [
     "Why are you learning German?",
-    "What's your current level?",
+    "What is your current level?",
     "How much time per day?",
-    "How do you like to learn?",
+    "How do you prefer to learn?",
     "Which region?",
-    "Any deadline?",
+    "Any target deadline?",
   ]
-
-  const stepSubtitles = [
+  const subtitles = [
     "We'll personalize your lessons to match your goal.",
-    "No pressure -- you can always adjust later.",
-    "Even 5 minutes a day makes a big difference.",
-    "We'll weight your exercises accordingly.",
+    "No pressure -- you can change this later.",
+    "Even 5 minutes a day makes a difference.",
+    "We'll weight exercises accordingly.",
     "We'll adjust vocabulary and expressions.",
-    "We'll pace your plan to meet your goal.",
+    "We'll pace your learning plan.",
   ]
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      {/* Top section */}
-      <div className="pt-safe px-5 pt-6 pb-4">
-        {/* Progress bar */}
-        <div className="flex items-center gap-3 mb-6">
+      {/* Top */}
+      <div className="pt-safe px-5 pt-6 pb-3">
+        <div className="flex items-center gap-3 mb-5">
           {step > 0 && (
             <button
               onClick={goBack}
-              className="shrink-0 w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-foreground hover:bg-secondary/80 transition-colors"
+              className="shrink-0 w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-foreground"
               aria-label="Go back"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
           )}
-          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
             <motion.div
               className="h-full rounded-full bg-primary"
               animate={{ width: `${((step + 1) / TOTAL_STEPS) * 100}%` }}
               transition={{ type: "spring", stiffness: 200, damping: 25 }}
             />
           </div>
-          <span className="text-xs font-semibold text-muted-foreground tabular-nums shrink-0">
+          <span className="text-[10px] font-semibold text-muted-foreground tabular-nums shrink-0">
             {step + 1}/{TOTAL_STEPS}
           </span>
         </div>
-
-        {/* Mascot */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-3">
           <IgelMascot
             mood={step === 0 ? "happy" : step === TOTAL_STEPS - 1 ? "cheering" : "thinking"}
-            size={64}
+            size={56}
             breathing
           />
         </div>
       </div>
 
-      {/* Step content */}
+      {/* Content */}
       <div className="flex-1 px-5 overflow-hidden">
         <AnimatePresence mode="wait" custom={dir}>
           <motion.div
@@ -193,45 +162,30 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             exit="exit"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
-            {/* Title */}
-            <h1 className="text-2xl font-bold text-foreground text-center mb-1 text-balance">
-              {stepTitles[step]}
+            <h1 className="text-xl font-bold text-foreground text-center mb-1 text-balance">
+              {titles[step]}
             </h1>
-            <p className="text-sm text-muted-foreground text-center mb-6 text-pretty">
-              {stepSubtitles[step]}
+            <p className="text-xs text-muted-foreground text-center mb-5 text-pretty">
+              {subtitles[step]}
             </p>
 
-            {/* Options */}
-            {step === 0 && (
-              <OptionGrid options={purposeOptions} selected={purpose} onSelect={(v) => { setPurpose(v); setTimeout(goNext, 200) }} />
-            )}
-            {step === 1 && (
-              <OptionGrid options={levelOptions} selected={level} onSelect={(v) => { setLevel(v); setTimeout(goNext, 200) }} cols={2} />
-            )}
-            {step === 2 && (
-              <OptionGrid options={timeOptions} selected={time} onSelect={(v) => { setTime(v); setTimeout(goNext, 200) }} cols={2} />
-            )}
-            {step === 3 && (
-              <OptionGrid options={styleOptions} selected={style} onSelect={(v) => { setStyle(v); setTimeout(goNext, 200) }} cols={2} />
-            )}
-            {step === 4 && (
-              <OptionGrid options={regionOptions} selected={region} onSelect={(v) => { setRegion(v); setTimeout(goNext, 200) }} cols={2} />
-            )}
+            {step === 0 && <OptionGrid options={purposeOptions} selected={purpose} onSelect={(v) => { setPurpose(v); setTimeout(goNext, 180) }} />}
+            {step === 1 && <OptionGrid options={levelOptions} selected={level} onSelect={(v) => { setLevel(v); setTimeout(goNext, 180) }} />}
+            {step === 2 && <OptionGrid options={timeOptions} selected={time} onSelect={(v) => { setTime(v); setTimeout(goNext, 180) }} />}
+            {step === 3 && <OptionGrid options={styleOptions} selected={style} onSelect={(v) => { setStyle(v); setTimeout(goNext, 180) }} />}
+            {step === 4 && <OptionGrid options={regionOptions} selected={region} onSelect={(v) => { setRegion(v); setTimeout(goNext, 180) }} />}
             {step === 5 && (
               <div className="flex flex-col items-center gap-4">
                 <input
                   type="date"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full max-w-xs px-4 py-3 rounded-xl bg-card border-2 border-border text-foreground font-medium text-center focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  className="w-full max-w-xs px-4 py-3 rounded-xl bg-card border border-border text-foreground font-medium text-center focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none transition-all"
                   aria-label="Target deadline"
                 />
                 <button
                   onClick={() => setDeadline("")}
-                  className={cn(
-                    "text-sm font-medium transition-colors",
-                    !deadline ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                  )}
+                  className={cn("text-sm font-medium", !deadline ? "text-primary" : "text-muted-foreground")}
                 >
                   No specific deadline
                 </button>
@@ -241,19 +195,19 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         </AnimatePresence>
       </div>
 
-      {/* Bottom action */}
+      {/* Bottom */}
       <div className="px-5 pb-6 pb-safe">
         {step === TOTAL_STEPS - 1 ? (
           <motion.button
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.15 }}
             onClick={handleFinish}
-            disabled={!canContinue()}
+            disabled={!canFinish}
             className={cn(
-              "w-full py-4 rounded-2xl text-lg font-bold transition-all flex items-center justify-center gap-2",
-              canContinue()
-                ? "bg-primary text-primary-foreground shadow-lg active:scale-[0.98]"
+              "w-full py-3.5 rounded-xl text-base font-bold transition-all flex items-center justify-center gap-2",
+              canFinish
+                ? "bg-primary text-primary-foreground active:scale-[0.98]"
                 : "bg-secondary text-muted-foreground"
             )}
           >
@@ -261,62 +215,52 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <ChevronRight className="w-5 h-5" />
           </motion.button>
         ) : (
-          <div className="h-14" /> /* Spacer -- auto-advance on tap */
+          <div className="h-14" />
         )}
       </div>
     </div>
   )
 }
 
-/* ── Reusable option grid ── */
 function OptionGrid<T extends string>({
-  options,
-  selected,
-  onSelect,
-  cols = 2,
+  options, selected, onSelect,
 }: {
   options: Option<T>[]
   selected: T | null
   onSelect: (value: T) => void
-  cols?: number
 }) {
   return (
-    <div className={cn("grid gap-3", cols === 2 ? "grid-cols-2" : "grid-cols-2")}>
+    <div className="grid grid-cols-2 gap-2.5">
       {options.map((opt, i) => {
         const isSelected = selected === opt.value
         const Icon = opt.icon
         return (
           <motion.button
             key={opt.value}
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            whileTap={{ scale: 0.96 }}
+            transition={{ delay: i * 0.04 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => onSelect(opt.value)}
             className={cn(
-              "flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all text-center",
+              "flex flex-col items-center gap-1.5 p-3.5 rounded-xl border transition-all text-center",
               isSelected
-                ? "border-primary bg-primary/10 shadow-md"
+                ? "border-primary bg-primary/10"
                 : "border-border bg-card hover:border-primary/30"
             )}
           >
             <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+              "w-9 h-9 rounded-lg flex items-center justify-center transition-colors",
               isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
             )}>
-              <Icon className="w-5 h-5" />
+              <Icon className="w-4.5 h-4.5" />
             </div>
             <div>
-              <p className={cn(
-                "text-sm font-bold transition-colors",
-                isSelected ? "text-primary" : "text-foreground"
-              )}>
+              <p className={cn("text-sm font-semibold", isSelected ? "text-primary" : "text-foreground")}>
                 {opt.label}
               </p>
               {opt.desc && (
-                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                  {opt.desc}
-                </p>
+                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{opt.desc}</p>
               )}
             </div>
           </motion.button>

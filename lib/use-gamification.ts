@@ -1,9 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { lessonCatalog } from "@/lib/lesson-catalog"
+import {
+  buildPersonalizedCatalog,
+  isLessonUnlocked,
+  getCurrentLesson,
+  type LessonCatalogItem,
+} from "@/lib/lesson-catalog"
+import type { Purpose } from "@/lib/use-learner-profile"
 
-/* ── Learning progress state (no gamification language) ── */
 export interface LearningProgress {
   completedLessons: string[]
   lastActiveDate: string
@@ -36,11 +41,9 @@ function persistState(state: LearningProgress) {
   window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: state }))
 }
 
-/* ── Hook ── */
-export function useGamification() {
+export function useGamification(purpose: Purpose | null = null) {
   const [state, setState] = useState<LearningProgress>(loadState)
 
-  /* Sync across tabs / components */
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<LearningProgress>).detail
@@ -50,7 +53,6 @@ export function useGamification() {
     return () => window.removeEventListener(EVENT_NAME, handler)
   }, [])
 
-  /* Track active day on mount */
   useEffect(() => {
     const today = getToday()
     setState((prev) => {
@@ -86,32 +88,50 @@ export function useGamification() {
     })
   }, [])
 
-  /* Derived values */
-  const totalLessons = lessonCatalog.length
-  const completedCount = state.completedLessons.length
+  /* Build personalized catalog */
+  const personalCatalog: LessonCatalogItem[] = useMemo(
+    () => buildPersonalizedCatalog(purpose),
+    [purpose]
+  )
+
+  const completedSet = useMemo(
+    () => new Set(state.completedLessons),
+    [state.completedLessons]
+  )
+
+  const totalLessons = personalCatalog.length
+  const completedCount = personalCatalog.filter((l) => completedSet.has(l.id)).length
   const overallProgress = totalLessons > 0 ? completedCount / totalLessons : 0
 
-  /* Determine current phase */
+  const currentLesson = useMemo(
+    () => getCurrentLesson(personalCatalog, completedSet),
+    [personalCatalog, completedSet]
+  )
+
   const currentPhase = useMemo(() => {
-    const pct = overallProgress
-    if (pct < 0.25) return { label: "Quick Wins", phase: 1 as const }
-    if (pct < 0.7) return { label: "Structured Growth", phase: 2 as const }
+    if (overallProgress < 0.25) return { label: "Quick Wins", phase: 1 as const }
+    if (overallProgress < 0.7) return { label: "Structured Growth", phase: 2 as const }
     return { label: "Precision & Fluency", phase: 3 as const }
   }, [overallProgress])
 
-  /* Current module name */
-  const currentModule = useMemo(() => {
-    const next = lessonCatalog.find((l) => !state.completedLessons.includes(l.id))
-    return next?.group ?? "All Complete"
-  }, [state.completedLessons])
+  const currentModule = currentLesson?.group ?? "All Complete"
+
+  /** Check if a specific lesson is unlocked */
+  const isUnlocked = useCallback(
+    (lesson: LessonCatalogItem) => isLessonUnlocked(lesson, completedSet),
+    [completedSet]
+  )
 
   return {
     ...state,
+    personalCatalog,
     totalLessons,
     completedCount,
     overallProgress,
     currentPhase,
     currentModule,
+    currentLesson,
+    isUnlocked,
     completeLesson,
   }
 }

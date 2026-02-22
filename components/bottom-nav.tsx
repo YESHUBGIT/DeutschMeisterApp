@@ -1,17 +1,17 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Home, Dumbbell, BookOpen, MessageCircle, User } from "lucide-react"
+import { Route, Dumbbell, Layers, MessageSquare, CircleUser } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type AppTab = "home" | "practice" | "review" | "tutor" | "profile"
 
-const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
-  { id: "home", label: "Learn", icon: Home },
+const tabs: { id: AppTab; label: string; icon: typeof Route }[] = [
+  { id: "home", label: "Path", icon: Route },
   { id: "practice", label: "Practice", icon: Dumbbell },
-  { id: "review", label: "Review", icon: BookOpen },
-  { id: "tutor", label: "Tutor", icon: MessageCircle },
-  { id: "profile", label: "Profile", icon: User },
+  { id: "review", label: "Review", icon: Layers },
+  { id: "tutor", label: "Tutor", icon: MessageSquare },
+  { id: "profile", label: "Profile", icon: CircleUser },
 ]
 
 interface BottomNavProps {
@@ -22,7 +22,7 @@ interface BottomNavProps {
 export function BottomNav({ active, onChange }: BottomNavProps) {
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 bg-card/95 backdrop-blur-md border-t border-border pb-safe"
+      className="fixed bottom-0 inset-x-0 z-50 glass-card pb-safe"
       role="tablist"
       aria-label="Main navigation"
     >
@@ -44,20 +44,20 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
             >
               {isActive && (
                 <motion.div
-                  layoutId="bottomNavPill"
-                  className="absolute -top-px left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-b-full bg-primary"
+                  layoutId="navIndicator"
+                  className="absolute -top-px left-1/2 -translate-x-1/2 h-[2px] w-10 rounded-b-full bg-primary"
                   transition={{ type: "spring", stiffness: 500, damping: 35 }}
                 />
               )}
               <motion.div
-                whileTap={{ scale: 0.82 }}
-                transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                whileTap={{ scale: 0.8 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
               >
                 <Icon className={cn("w-5 h-5 transition-all", isActive && "stroke-[2.5px]")} />
               </motion.div>
               <span className={cn(
-                "text-[10px] font-semibold leading-tight",
-                isActive ? "text-primary" : "text-muted-foreground"
+                "text-[10px] font-medium leading-tight",
+                isActive ? "text-primary font-semibold" : "text-muted-foreground"
               )}>
                 {tab.label}
               </span>

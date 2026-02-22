@@ -42,8 +42,8 @@ export function ProfileScreen({
   const stats = [
     { icon: Target, label: "Phase", value: `${currentPhase.phase} - ${currentPhase.label}`, color: "text-primary", bg: "bg-primary/10", span: true },
     { icon: BookOpen, label: "Lessons Done", value: `${completedCount} / ${totalLessons}`, color: "text-primary", bg: "bg-primary/10" },
-    { icon: CalendarDays, label: "Active Days", value: activeDays, color: "text-dm-amber", bg: "bg-dm-amber/10" },
-    { icon: Clock, label: "Time Studied", value: `${minutesStudied} min`, color: "text-dm-teal-light", bg: "bg-dm-teal/10" },
+    { icon: CalendarDays, label: "Active Days", value: activeDays, color: "text-accent", bg: "bg-accent/10" },
+    { icon: Clock, label: "Time Studied", value: `${minutesStudied} min`, color: "text-success", bg: "bg-success/10" },
   ]
 
   const links = [
@@ -82,40 +82,39 @@ export function ProfileScreen({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ x: "-30%", opacity: 0 }}
-            transition={{ duration: 0.2 }}
           >
-            {/* Mascot + heading */}
+            {/* Header */}
             <div className="flex flex-col items-center pt-4 pb-5">
               <IgelMascot
                 mood={completedCount >= totalLessons * 0.5 ? "cheering" : completedCount > 0 ? "happy" : "idle"}
-                size={72}
+                size={64}
                 breathing
               />
-              <h2 className="mt-3 text-xl font-bold text-foreground">Your Progress</h2>
+              <h2 className="mt-3 text-lg font-bold text-foreground">Your Progress</h2>
               {profile.purpose && (
                 <p className="text-sm text-muted-foreground">
-                  {PURPOSE_LABEL[profile.purpose] ?? "General"} path | {profile.level?.toUpperCase() ?? "New"}
+                  {PURPOSE_LABEL[profile.purpose] ?? "General"} path
+                  <span className="mx-1.5 text-border">|</span>
+                  {profile.level?.toUpperCase() ?? "New"}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Current module: {currentModule}
-              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{currentModule}</p>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-2.5 mb-5">
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-2 mb-5">
               {stats.map((stat, i) => (
                 <motion.div
                   key={stat.label}
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
+                  transition={{ delay: i * 0.04 }}
                   className={cn(
-                    "flex items-center gap-3 p-3 rounded-2xl bg-card border border-border",
+                    "flex items-center gap-3 p-3 rounded-xl bg-card border border-border",
                     stat.span && "col-span-2"
                   )}
                 >
-                  <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", stat.bg)}>
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", stat.bg)}>
                     <stat.icon className={cn("w-4 h-4", stat.color)} />
                   </div>
                   <div className="min-w-0">
@@ -127,25 +126,23 @@ export function ProfileScreen({
             </div>
 
             {/* Reference links */}
-            <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5">
-              Reference
-            </h3>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Reference</p>
             <div className="flex flex-col gap-2 mb-5">
               {links.map((link, i) => (
                 <motion.button
                   key={link.id}
-                  initial={{ opacity: 0, x: -16 }}
+                  initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 + i * 0.05 }}
+                  transition={{ delay: 0.15 + i * 0.04 }}
                   onClick={() => setSubPage(link.id)}
-                  className="flex items-center gap-3 p-3 rounded-2xl bg-card border border-border text-left hover:border-primary/40 transition-colors group"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border text-left hover:border-primary/30 transition-colors group"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <link.icon className="w-4 h-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-foreground">{link.label}</p>
-                    <p className="text-[11px] text-muted-foreground">{link.desc}</p>
+                    <p className="text-sm font-semibold text-foreground">{link.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{link.desc}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                 </motion.button>
@@ -153,20 +150,16 @@ export function ProfileScreen({
             </div>
 
             {/* Settings */}
-            <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5">
-              Settings
-            </h3>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Settings</p>
             <div className="flex flex-col gap-2 mb-6">
               <button
                 onClick={toggle}
-                className="flex items-center gap-3 w-full p-3 rounded-2xl bg-card border border-border"
+                className="flex items-center gap-3 w-full p-3 rounded-xl bg-card border border-border"
               >
-                <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0">
                   {enabled ? <Volume2 className="w-4 h-4 text-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
                 </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-bold text-foreground">Sound Effects</p>
-                </div>
+                <p className="flex-1 text-left text-sm font-semibold text-foreground">Sound Effects</p>
                 <div className={cn(
                   "w-10 h-[22px] rounded-full transition-colors relative",
                   enabled ? "bg-primary" : "bg-secondary"
@@ -181,14 +174,14 @@ export function ProfileScreen({
               {onResetProfile && (
                 <button
                   onClick={onResetProfile}
-                  className="flex items-center gap-3 w-full p-3 rounded-2xl bg-card border border-border hover:border-dm-coral/40 transition-colors"
+                  className="flex items-center gap-3 w-full p-3 rounded-xl bg-card border border-border hover:border-destructive/30 transition-colors"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-dm-coral/10 flex items-center justify-center shrink-0">
-                    <RotateCcw className="w-4 h-4 text-dm-coral" />
+                  <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                    <RotateCcw className="w-4 h-4 text-destructive" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="text-sm font-bold text-foreground">Restart Onboarding</p>
-                    <p className="text-[11px] text-muted-foreground">Change your learning preferences</p>
+                    <p className="text-sm font-semibold text-foreground">Restart Onboarding</p>
+                    <p className="text-[10px] text-muted-foreground">Change your learning preferences</p>
                   </div>
                 </button>
               )}

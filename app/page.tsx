@@ -14,7 +14,6 @@ import { useGamification } from "@/lib/use-gamification"
 import { useLearnerProfile } from "@/lib/use-learner-profile"
 import { useSoundSettings } from "@/lib/use-sound-settings"
 
-/* ── Tab ordering for slide direction ── */
 const TAB_ORDER: AppTab[] = ["home", "practice", "review", "tutor", "profile"]
 
 function getDirection(from: AppTab, to: AppTab): number {
@@ -22,9 +21,9 @@ function getDirection(from: AppTab, to: AppTab): number {
 }
 
 const slideVariants = {
-  enter: (dir: number) => ({ x: dir > 0 ? "30%" : "-30%", opacity: 0 }),
+  enter: (dir: number) => ({ x: dir > 0 ? "20%" : "-20%", opacity: 0 }),
   center: { x: 0, opacity: 1 },
-  exit: (dir: number) => ({ x: dir > 0 ? "-15%" : "15%", opacity: 0 }),
+  exit: (dir: number) => ({ x: dir > 0 ? "-10%" : "10%", opacity: 0 }),
 }
 
 export default function Home() {
@@ -33,18 +32,13 @@ export default function Home() {
   const prevTabRef = useRef<AppTab>("home")
   const [direction, setDirection] = useState(0)
 
-  const progress = useGamification()
   const { profile, updateProfile, completeOnboarding, resetProfile } = useLearnerProfile()
+  const progress = useGamification(profile.purpose)
   const { play } = useSoundSettings()
 
-  /* ── Onboarding completion ── */
   const handleOnboardingComplete = useCallback((answers: {
-    purpose: string
-    level: string
-    timeCommitment: string
-    learningStyle: string
-    region: string
-    deadline: string
+    purpose: string; level: string; timeCommitment: string;
+    learningStyle: string; region: string; deadline: string
   }) => {
     updateProfile({
       purpose: answers.purpose as never,
@@ -58,7 +52,6 @@ export default function Home() {
     play("complete")
   }, [updateProfile, completeOnboarding, play])
 
-  /* ── Tab navigation ── */
   const handleTabChange = useCallback((tab: AppTab) => {
     setDirection(getDirection(prevTabRef.current, tab))
     prevTabRef.current = activeTab
@@ -81,7 +74,7 @@ export default function Home() {
     setActiveTab("practice")
   }, [])
 
-  /* ── Gate: show onboarding if not completed ── */
+  /* Onboarding gate */
   if (!profile.onboarded) {
     return (
       <AnimatePresence mode="wait">
@@ -89,8 +82,8 @@ export default function Home() {
           key="onboarding"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.3 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.25 }}
         >
           <Onboarding onComplete={handleOnboardingComplete} />
         </motion.div>
@@ -98,7 +91,6 @@ export default function Home() {
     )
   }
 
-  /* ── Main app shell ── */
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       <TopBar
@@ -109,7 +101,7 @@ export default function Home() {
         activeDays={progress.activeDays}
       />
 
-      <main className="flex-1 overflow-y-auto pb-20 pt-2">
+      <main className="flex-1 overflow-y-auto pb-20 pt-3">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={activeTab}
