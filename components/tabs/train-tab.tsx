@@ -191,39 +191,25 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
           <ChevronRight className="w-5 h-5 text-primary shrink-0" />
         </motion.button>
 
-        {/* Lesson Filter Chips */}
+        {/* Lesson Filter Dropdown */}
         <div>
-          <div className="flex items-center gap-2 mb-2.5">
+          <div className="flex items-center gap-2 mb-2">
             <ListFilter className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">By Lesson</span>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Filter by Lesson</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleLessonPick("all")}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
-                lessonFilter === "all"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/50"
-              )}
-            >
-              All ({allExercises.length})
-            </button>
+          <select
+            value={lessonFilter}
+            onChange={(e) => handleLessonPick(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl bg-card border border-border text-sm font-medium text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}
+          >
+            <option value="all">All Lessons ({allExercises.length})</option>
             {lessonNames.map(ln => (
-              <button
-                key={ln.id}
-                onClick={() => handleLessonPick(ln.id)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
-                  lessonFilter === ln.id
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/50"
-                )}
-              >
+              <option key={ln.id} value={ln.id}>
                 {ln.title} ({lessonCounts[ln.id] ?? 0})
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* Category Cards */}

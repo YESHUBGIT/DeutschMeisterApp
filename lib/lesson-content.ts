@@ -751,10 +751,21 @@ export function getAllPracticeExercises(): PracticeExercise[] {
   return result
 }
 
-/** Lesson names for the filter dropdown */
+/** Short lesson names for the filter dropdown */
+const LESSON_TITLES: Record<string, string> = {
+  "greetings-intro":    "Greetings",
+  "numbers-time":       "Numbers & Time",
+  "personal-pronouns":  "Pronouns",
+  "articles-gender":    "Articles & Gender",
+  "present-tense":      "Present Tense",
+  "everyday-phrases":   "Survival Phrases",
+  "negation":           "Negation",
+  "w-questions":        "W-Questions",
+}
+
 export function getLessonNames(): { id: string; title: string }[] {
   return Object.values(lessonContentMap).map(c => ({
     id: c.lessonId,
-    title: c.goal.split(",")[0].split(".")[0].trim(),
+    title: LESSON_TITLES[c.lessonId] ?? c.lessonId,
   }))
 }
