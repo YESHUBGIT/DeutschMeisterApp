@@ -692,7 +692,7 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
               const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0
               const great = pct >= 70
               return (
-                <div className="space-y-6 py-4">
+                <div className="space-y-5 py-4">
                   <motion.div
                     className="flex justify-center"
                     initial={{ scale: 0.5 }}
@@ -702,7 +702,7 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
                     <IgelMascot mood={great ? "celebrate" : "thinking"} size={80} breathing />
                   </motion.div>
                   <div className="text-center space-y-2">
-                    <h2 className="text-xl font-bold text-foreground">Lesson Complete</h2>
+                    <h2 className="text-xl font-bold text-foreground">Lesson Complete!</h2>
                     <motion.p
                       className={cn("text-4xl font-black tabular-nums", great ? "text-success" : "text-accent")}
                       initial={{ scale: 0 }}
@@ -715,10 +715,53 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
                       {score.correct} of {score.total} exercises correct
                     </p>
                   </div>
-                  <div className="p-4 rounded-xl bg-accent/10 border border-accent/20">
+
+                  {/* ── Recap: what you learned ── */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary">What you learned</p>
+
+                    {/* Grammar recap */}
+                    <div className="p-3 rounded-xl bg-card border border-border space-y-1.5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <BookOpen className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-bold text-foreground">Grammar</span>
+                      </div>
+                      {content.grammarPoints.map((gp, i) => (
+                        <p key={i} className="text-xs text-muted-foreground leading-relaxed pl-5">
+                          {'\u2022'} {gp.rule.length > 80 ? gp.rule.slice(0, 80) + '...' : gp.rule}
+                        </p>
+                      ))}
+                    </div>
+
+                    {/* Vocab recap */}
+                    <div className="p-3 rounded-xl bg-card border border-border">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Volume2 className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-xs font-bold text-foreground">Vocabulary ({content.vocabulary.length} words)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {content.vocabulary.slice(0, 12).map(v => (
+                          <span
+                            key={v.german}
+                            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-secondary text-foreground font-medium"
+                          >
+                            {v.german}
+                            <SpeakButton text={v.german} size="sm" />
+                          </span>
+                        ))}
+                        {content.vocabulary.length > 12 && (
+                          <span className="text-[10px] text-muted-foreground self-center">+{content.vocabulary.length - 12} more</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Review tip */}
+                  <div className="p-3 rounded-xl bg-accent/10 border border-accent/20">
                     <p className="text-xs font-bold text-accent mb-1">Review tip</p>
                     <p className="text-xs text-muted-foreground leading-relaxed">{content.reviewHint}</p>
                   </div>
+
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -734,7 +777,7 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
                       }}
                       className="flex-1 py-3 rounded-xl font-bold"
                     >
-                      Complete Lesson <Check className="w-4 h-4 ml-1" />
+                      Continue <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                   </div>
                 </div>

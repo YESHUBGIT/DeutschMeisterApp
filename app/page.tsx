@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { BottomNav, type AppTab } from "@/components/bottom-nav"
 import { TopBar } from "@/components/top-bar"
@@ -29,11 +29,14 @@ const slideVariants = {
 }
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState<AppTab>("home")
   const [lessonFilter, setLessonFilter] = useState("all")
   const prevTabRef = useRef<AppTab>("home")
   const [direction, setDirection] = useState(0)
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
+
+  useEffect(() => { setMounted(true) }, [])
 
   const { profile, updateProfile, completeOnboarding, resetProfile } = useLearnerProfile()
   const progress = useGamification(profile.purpose)
@@ -93,6 +96,11 @@ export default function Home() {
     prevTabRef.current = "home"
     setActiveTab("practice")
   }, [])
+
+  /* SSR/hydration guard - render nothing dependent on localStorage until mounted */
+  if (!mounted) {
+    return <div className="min-h-dvh bg-background" />
+  }
 
   /* Lesson player gate */
   const activeLessonContent = activeLessonId ? getLessonContent(activeLessonId) : null

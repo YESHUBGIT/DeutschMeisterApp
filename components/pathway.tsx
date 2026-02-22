@@ -144,7 +144,7 @@ export function Pathway({ completedLessons, onStartLesson, onPracticeLesson, pro
                     {/* Card */}
                     <button
                       onClick={() => {
-                        if (isCompleted) onPracticeLesson(lesson.id)
+                        if (isCompleted) onStartLesson(lesson.id)
                         else if (isCurrent) onStartLesson(lesson.id)
                         else handleLockedTap(lesson.id)
                       }}
