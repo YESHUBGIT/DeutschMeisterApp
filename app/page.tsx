@@ -13,6 +13,8 @@ import { ProfileScreen } from "@/components/profile-screen"
 import { useGamification } from "@/lib/use-gamification"
 import { useLearnerProfile } from "@/lib/use-learner-profile"
 import { useSoundSettings } from "@/lib/use-sound-settings"
+import { LessonPlayer } from "@/components/lesson-player"
+import { getLessonContent } from "@/lib/lesson-content"
 
 const TAB_ORDER: AppTab[] = ["home", "practice", "review", "tutor", "profile"]
 
@@ -31,6 +33,7 @@ export default function Home() {
   const [lessonFilter, setLessonFilter] = useState("all")
   const prevTabRef = useRef<AppTab>("home")
   const [direction, setDirection] = useState(0)
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
 
   const { profile, updateProfile, completeOnboarding, resetProfile } = useLearnerProfile()
   const progress = useGamification(profile.purpose)
@@ -59,13 +62,30 @@ export default function Home() {
   }, [activeTab])
 
   const handleStartLesson = useCallback((lessonId: string) => {
-    setLessonFilter(lessonId)
-    setDirection(1)
-    prevTabRef.current = "home"
-    setActiveTab("practice")
-    progress.completeLesson(lessonId)
-    play("correct")
+    const content = getLessonContent(lessonId)
+    if (content) {
+      // Open interactive lesson player
+      setActiveLessonId(lessonId)
+    } else {
+      // Fallback: go to train tab for lessons without content yet
+      setLessonFilter(lessonId)
+      setDirection(1)
+      prevTabRef.current = "home"
+      setActiveTab("practice")
+      progress.completeLesson(lessonId)
+      play("correct")
+    }
   }, [progress, play])
+
+  const handleLessonComplete = useCallback((lessonId: string, _score: number, _total: number) => {
+    progress.completeLesson(lessonId)
+    play("complete")
+    setActiveLessonId(null)
+  }, [progress, play])
+
+  const handleLessonExit = useCallback(() => {
+    setActiveLessonId(null)
+  }, [])
 
   const handlePracticeLesson = useCallback((lessonId: string) => {
     setLessonFilter(lessonId)
@@ -73,6 +93,28 @@ export default function Home() {
     prevTabRef.current = "home"
     setActiveTab("practice")
   }, [])
+
+  /* Lesson player gate */
+  const activeLessonContent = activeLessonId ? getLessonContent(activeLessonId) : null
+  if (activeLessonContent) {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="lesson-player"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+        >
+          <LessonPlayer
+            content={activeLessonContent}
+            onComplete={handleLessonComplete}
+            onExit={handleLessonExit}
+          />
+        </motion.div>
+      </AnimatePresence>
+    )
+  }
 
   /* Onboarding gate */
   if (!profile.onboarded) {
