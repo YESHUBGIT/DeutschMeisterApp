@@ -1,18 +1,113 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { motion, AnimatePresence, useAnimation } from "framer-motion"
 import {
   X, ChevronRight, BookOpen, MessageSquare, Dumbbell,
-  Check, RotateCcw, Lightbulb, Volume2, ArrowLeft
+  Check, RotateCcw, Lightbulb, Volume2, ArrowLeft, Sparkles, Play
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { IgelMascot } from "@/components/igel/igel-mascot"
+import { playSound } from "@/lib/sound"
 import { cn } from "@/lib/utils"
-import type { LessonContent, Exercise, ExerciseKind } from "@/lib/lesson-content"
+import type { LessonContent, Exercise, ExerciseKind, DialogueLine } from "@/lib/lesson-content"
 
-/* ── Step types in the lesson flow ── */
+/* ── TTS helper ── */
+const FEMALE_NAMES = ["anna", "frau", "maria", "sarah", "lisa", "julia", "katharina", "emma", "lena"]
+
+function speakGerman(text: string, speakerName?: string) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  window.speechSynthesis.cancel()
+  const utter = new SpeechSynthesisUtterance(text)
+  utter.lang = "de-DE"
+  utter.rate = 0.85
+  utter.pitch = 1.0
+  // Try to pick a voice matching gender
+  const voices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith("de"))
+  if (speakerName) {
+    const isFemale = FEMALE_NAMES.some(n => speakerName.toLowerCase().includes(n))
+    const genderVoice = voices.find(v =>
+      isFemale ? v.name.toLowerCase().includes("female") || v.name.toLowerCase().includes("anna")
+        : v.name.toLowerCase().includes("male") || v.name.toLowerCase().includes("hans")
+    )
+    if (genderVoice) utter.voice = genderVoice
+    else if (voices.length > 0) {
+      // fallback: first voice for even speakers, second for odd
+      utter.voice = isFemale ? voices[0] : (voices[1] || voices[0])
+    }
+    if (isFemale) { utter.pitch = 1.15 } else { utter.pitch = 0.85 }
+  } else if (voices.length > 0) {
+    utter.voice = voices[0]
+  }
+  window.speechSynthesis.speak(utter)
+}
+
+// Pre-load voices on mount
+function useVoicePreload() {
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+    window.speechSynthesis.getVoices()
+    const handler = () => window.speechSynthesis.getVoices()
+    window.speechSynthesis.addEventListener("voiceschanged", handler)
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", handler)
+  }, [])
+}
+
+/* ── Confetti particles ── */
+function ConfettiBurst({ active }: { active: boolean }) {
+  if (!active) return null
+  const particles = useMemo(() =>
+    Array.from({ length: 24 }, (_, i) => ({
+      id: i,
+      x: (Math.random() - 0.5) * 300,
+      y: -(Math.random() * 200 + 100),
+      r: Math.random() * 360,
+      color: ["#0EA5E9", "#84CC16", "#F59E0B", "#A78BFA", "#F43F5E"][i % 5],
+      size: Math.random() * 8 + 4,
+      delay: Math.random() * 0.15,
+    })), [])
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {particles.map(p => (
+        <motion.div
+          key={p.id}
+          className="absolute left-1/2 top-1/2 rounded-sm"
+          style={{ width: p.size, height: p.size, backgroundColor: p.color }}
+          initial={{ x: 0, y: 0, rotate: 0, opacity: 1, scale: 1 }}
+          animate={{ x: p.x, y: p.y, rotate: p.r, opacity: 0, scale: 0.3 }}
+          transition={{ duration: 1.2, delay: p.delay, ease: "easeOut" }}
+        />
+      ))}
+    </div>
+  )
+}
+
+/* ── Speaker button ── */
+function SpeakButton({ text, speaker, size = "sm" }: { text: string; speaker?: string; size?: "sm" | "md" }) {
+  const [playing, setPlaying] = useState(false)
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        setPlaying(true)
+        speakGerman(text, speaker)
+        setTimeout(() => setPlaying(false), 1500)
+      }}
+      className={cn(
+        "shrink-0 rounded-full flex items-center justify-center transition-all",
+        size === "sm" ? "w-7 h-7" : "w-9 h-9",
+        playing ? "bg-primary text-primary-foreground scale-110" : "bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/10"
+      )}
+      aria-label={`Play pronunciation${speaker ? ` for ${speaker}` : ""}`}
+    >
+      <Volume2 className={size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"} />
+    </button>
+  )
+}
+
+/* ── Step types ── */
 type LessonStep =
   | { kind: "intro" }
   | { kind: "grammar"; index: number }
@@ -28,7 +123,9 @@ interface LessonPlayerProps {
 }
 
 export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps) {
-  /* Build the step sequence */
+  useVoicePreload()
+  const shakeControls = useAnimation()
+
   const steps = useMemo<LessonStep[]>(() => {
     const s: LessonStep[] = [{ kind: "intro" }]
     content.grammarPoints.forEach((_, i) => s.push({ kind: "grammar", index: i }))
@@ -41,27 +138,39 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
 
   const [stepIdx, setStepIdx] = useState(0)
   const [direction, setDirection] = useState(1)
-
-  /* Exercise state */
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [typedAnswer, setTypedAnswer] = useState("")
   const [reorderPicked, setReorderPicked] = useState<string[]>([])
+  const [reorderPool, setReorderPool] = useState<string[]>([])
   const [showResult, setShowResult] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [score, setScore] = useState({ correct: 0, total: 0 })
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [dialoguePlaying, setDialoguePlaying] = useState(false)
 
   const currentStep = steps[stepIdx]
   const progress = (stepIdx + 1) / steps.length
 
+  // Initialize reorder pool when entering a reorder exercise
+  useEffect(() => {
+    if (currentStep.kind === "exercise") {
+      const ex = content.exercises[(currentStep as { index: number }).index]
+      if (ex.kind === "reorder" && ex.words) {
+        setReorderPool([...ex.words])
+        setReorderPicked([])
+      }
+    }
+  }, [stepIdx, currentStep, content.exercises])
+
   const goNext = useCallback(() => {
     if (stepIdx >= steps.length - 1) return
     setDirection(1)
-    setStepIdx((i) => i + 1)
-    // Reset exercise state
+    setStepIdx(i => i + 1)
     setSelectedOption(null)
     setTypedAnswer("")
     setReorderPicked([])
+    setReorderPool([])
     setShowResult(false)
     setIsCorrect(false)
     setShowHint(false)
@@ -70,43 +179,85 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
   const goBack = useCallback(() => {
     if (stepIdx <= 0) return
     setDirection(-1)
-    setStepIdx((i) => i - 1)
+    setStepIdx(i => i - 1)
     setShowResult(false)
     setShowHint(false)
   }, [stepIdx])
 
+  /* ── Normalize answer for comparison ── */
+  const normalizeAnswer = (s: string) =>
+    s.toLowerCase().trim()
+      .replace(/\s+([.,!?;:])/g, "$1")   // remove space before punctuation
+      .replace(/([.,!?;:])\s*/g, "$1 ")   // ensure single space after punctuation
+      .replace(/\s+/g, " ")
+      .trim()
+
   const checkExerciseAnswer = useCallback((exercise: Exercise) => {
     let correct = false
     if (exercise.kind === "translation") {
-      const norm = (s: string) => s.toLowerCase().trim().replace(/[.,!?]/g, "").replace(/\s+/g, " ")
-      correct = norm(typedAnswer) === norm(exercise.answer)
+      correct = normalizeAnswer(typedAnswer) === normalizeAnswer(exercise.answer)
     } else if (exercise.kind === "reorder") {
-      correct = reorderPicked.join(" ") === exercise.answer
+      const userAnswer = normalizeAnswer(reorderPicked.join(" "))
+      const correctAnswer = normalizeAnswer(exercise.answer)
+      correct = userAnswer === correctAnswer
     } else {
       correct = selectedOption === exercise.answer
     }
+
     setIsCorrect(correct)
     setShowResult(true)
-    setScore((prev) => ({
+    setScore(prev => ({
       correct: correct ? prev.correct + 1 : prev.correct,
       total: prev.total + 1,
     }))
-  }, [selectedOption, typedAnswer, reorderPicked])
 
-  const handleReorderTap = useCallback((word: string) => {
-    setReorderPicked((prev) =>
-      prev.includes(word) ? prev.filter((w) => w !== word) : [...prev, word]
-    )
-  }, [])
+    if (correct) {
+      playSound("correct")
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 1500)
+    } else {
+      playSound("sad")
+      shakeControls.start({
+        x: [0, -8, 8, -6, 6, -3, 3, 0],
+        transition: { duration: 0.5 },
+      })
+    }
+  }, [selectedOption, typedAnswer, reorderPicked, shakeControls])
 
-  /* ── Slide animation ── */
+  const handleReorderTap = useCallback((word: string, fromPicked: boolean) => {
+    if (showResult) return
+    if (fromPicked) {
+      // Move from picked back to pool
+      const idx = reorderPicked.indexOf(word)
+      if (idx === -1) return
+      setReorderPicked(prev => { const n = [...prev]; n.splice(idx, 1); return n })
+      setReorderPool(prev => [...prev, word])
+    } else {
+      // Move from pool to picked
+      const idx = reorderPool.indexOf(word)
+      if (idx === -1) return
+      setReorderPool(prev => { const n = [...prev]; n.splice(idx, 1); return n })
+      setReorderPicked(prev => [...prev, word])
+    }
+  }, [showResult, reorderPicked, reorderPool])
+
+  const playDialogueSequence = useCallback(async () => {
+    if (dialoguePlaying) return
+    setDialoguePlaying(true)
+    for (const line of content.dialogue) {
+      speakGerman(line.german, line.speaker)
+      await new Promise(r => setTimeout(r, 2200))
+    }
+    setDialoguePlaying(false)
+  }, [content.dialogue, dialoguePlaying])
+
   const slideVars = {
     enter: (d: number) => ({ x: d > 0 ? "30%" : "-30%", opacity: 0 }),
     center: { x: 0, opacity: 1 },
     exit: (d: number) => ({ x: d > 0 ? "-15%" : "15%", opacity: 0 }),
   }
 
-  /* ── Render helpers ── */
+  /* ── Render Exercise ── */
   function renderExercise(exercise: Exercise) {
     const renderOptions = (kind: ExerciseKind) => {
       if (kind === "translation") {
@@ -114,11 +265,11 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
           <div className="space-y-3">
             <Input
               value={typedAnswer}
-              onChange={(e) => setTypedAnswer(e.target.value)}
+              onChange={e => setTypedAnswer(e.target.value)}
               placeholder="Type your answer in German..."
               disabled={showResult}
               className="bg-secondary border-border text-foreground text-center text-base py-3"
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === "Enter" && typedAnswer.trim()) checkExerciseAnswer(exercise)
               }}
             />
@@ -126,35 +277,36 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
         )
       }
 
-      if (kind === "reorder" && exercise.words) {
-        const remaining = exercise.words.filter((w) => !reorderPicked.includes(w))
+      if (kind === "reorder") {
         return (
           <div className="space-y-4">
             {/* Picked words area */}
-            <div className="min-h-[48px] p-3 rounded-xl bg-secondary/50 border border-dashed border-border flex flex-wrap gap-2">
+            <div className="min-h-[52px] p-3 rounded-xl bg-secondary/50 border-2 border-dashed border-border flex flex-wrap gap-2 items-start">
               {reorderPicked.length === 0 && (
                 <span className="text-muted-foreground text-sm">Tap words below to build the sentence...</span>
               )}
               {reorderPicked.map((w, i) => (
                 <motion.button
-                  key={`picked-${w}-${i}`}
-                  initial={{ scale: 0.8 }}
-                  animate={{ scale: 1 }}
-                  onClick={() => !showResult && handleReorderTap(w)}
-                  className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
+                  key={`picked-${i}`}
+                  initial={{ scale: 0.8, y: 8 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  onClick={() => handleReorderTap(w, true)}
+                  className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold shadow-md active:scale-95 transition-transform"
                 >
                   {w}
                 </motion.button>
               ))}
             </div>
-            {/* Available words */}
+            {/* Available words pool */}
             <div className="flex flex-wrap gap-2 justify-center">
-              {remaining.map((w, i) => (
+              {reorderPool.map((w, i) => (
                 <motion.button
-                  key={`word-${w}-${i}`}
+                  key={`pool-${i}`}
+                  layout
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => !showResult && handleReorderTap(w)}
-                  className="px-3 py-1.5 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:border-primary/50 transition-colors"
+                  onClick={() => handleReorderTap(w, false)}
+                  className="px-3 py-1.5 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:border-primary/50 transition-colors active:scale-95"
                 >
                   {w}
                 </motion.button>
@@ -167,7 +319,7 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
       /* multiple-choice / fill-blank */
       return (
         <div className="grid grid-cols-1 gap-2.5">
-          {exercise.options?.map((opt) => {
+          {exercise.options?.map(opt => {
             const isSelected = selectedOption === opt
             const isAnswer = opt === exercise.answer
             let optClass = "bg-card border-border hover:border-primary/50 text-foreground"
@@ -194,18 +346,20 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
     }
 
     return (
-      <div className="space-y-5">
-        {/* Prompt */}
-        <div className="p-4 rounded-xl bg-secondary/60 border border-border">
-          <p className="text-base font-semibold text-foreground text-center leading-relaxed">
+      <motion.div animate={shakeControls} className="space-y-5">
+        {/* Prompt with speaker */}
+        <div className="p-4 rounded-xl bg-secondary/60 border border-border flex items-center gap-3">
+          <p className="text-base font-semibold text-foreground text-center leading-relaxed flex-1">
             {exercise.prompt}
           </p>
+          {(exercise.kind === "translation" || exercise.kind === "reorder") && exercise.answer && (
+            <SpeakButton text={exercise.answer} />
+          )}
         </div>
 
-        {/* Options / Input */}
         {renderOptions(exercise.kind)}
 
-        {/* Hint toggle */}
+        {/* Hint */}
         {!showResult && (
           <button
             onClick={() => setShowHint(!showHint)}
@@ -240,8 +394,9 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
           </Button>
         ) : (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
             className={cn(
               "p-4 rounded-xl border-2",
               isCorrect
@@ -250,18 +405,22 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
             )}
           >
             <div className="flex items-start gap-3">
-              <div className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                isCorrect ? "bg-success" : "bg-destructive"
-              )}>
-                {isCorrect ? <Check className="w-4 h-4 text-success-foreground" /> : <X className="w-4 h-4 text-destructive-foreground" />}
-              </div>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 15, delay: 0.1 }}
+                className={cn(
+                  "w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+                  isCorrect ? "bg-success" : "bg-destructive"
+                )}
+              >
+                {isCorrect
+                  ? <Sparkles className="w-4 h-4 text-success-foreground" />
+                  : <X className="w-4 h-4 text-destructive-foreground" />}
+              </motion.div>
               <div className="flex-1 min-w-0">
-                <p className={cn(
-                  "text-sm font-bold",
-                  isCorrect ? "text-success" : "text-destructive"
-                )}>
-                  {isCorrect ? "Correct!" : "Not quite"}
+                <p className={cn("text-sm font-bold", isCorrect ? "text-success" : "text-destructive")}>
+                  {isCorrect ? "Richtig! Great job!" : "Not quite"}
                 </p>
                 {!isCorrect && (
                   <p className="text-xs text-muted-foreground mt-1">
@@ -269,37 +428,39 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
                   </p>
                 )}
                 {exercise.explanation && (
-                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                    {exercise.explanation}
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{exercise.explanation}</p>
                 )}
               </div>
             </div>
-
             <Button onClick={goNext} className="w-full mt-4 py-3 rounded-xl font-bold">
               Continue <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </motion.div>
         )}
-      </div>
+      </motion.div>
     )
   }
 
   /* ── Main render ── */
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      <ConfettiBurst active={showConfetti} />
+
       {/* Top bar */}
       <div className="sticky top-0 z-30 bg-background/90 backdrop-blur-md border-b border-border px-4 py-3">
         <div className="flex items-center gap-3 max-w-lg mx-auto">
           <button onClick={onExit} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
-          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+          <div className="flex-1 h-2.5 bg-secondary rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-primary rounded-full"
+              className="h-full rounded-full relative"
+              style={{ background: "linear-gradient(90deg, #0EA5E9, #84CC16)" }}
               animate={{ width: `${progress * 100}%` }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            />
+            >
+              <div className="absolute inset-0 animate-shimmer rounded-full" />
+            </motion.div>
           </div>
           <span className="text-xs font-bold text-muted-foreground tabular-nums">
             {stepIdx + 1}/{steps.length}
@@ -323,14 +484,17 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
             {/* ── INTRO ── */}
             {currentStep.kind === "intro" && (
               <div className="space-y-6 py-4">
-                <div className="flex justify-center">
-                  <IgelMascot mood="happy" size={64} breathing />
-                </div>
+                <motion.div
+                  className="flex justify-center"
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  <IgelMascot mood="happy" size={72} breathing />
+                </motion.div>
                 <div className="text-center space-y-2">
                   <p className="text-xs font-bold uppercase tracking-wider text-primary">Lesson Goal</p>
-                  <h1 className="text-xl font-bold text-foreground text-balance leading-tight">
-                    {content.goal}
-                  </h1>
+                  <h1 className="text-xl font-bold text-foreground text-balance leading-tight">{content.goal}</h1>
                 </div>
                 <div className="flex flex-col gap-2">
                   {[
@@ -338,12 +502,18 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
                     { icon: Volume2, label: "Vocabulary", detail: `${content.vocabulary.length} words` },
                     { icon: MessageSquare, label: "Dialogue", detail: `${content.dialogue.length} lines` },
                     { icon: Dumbbell, label: "Exercises", detail: `${content.exercises.length} challenges` },
-                  ].map(({ icon: Icon, label, detail }) => (
-                    <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+                  ].map(({ icon: Icon, label, detail }, i) => (
+                    <motion.div
+                      key={label}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 + i * 0.08 }}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border"
+                    >
                       <Icon className="w-4 h-4 text-primary shrink-0" />
                       <span className="text-sm font-medium text-foreground flex-1">{label}</span>
                       <span className="text-xs text-muted-foreground">{detail}</span>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
                 <Button onClick={goNext} className="w-full py-3 rounded-xl font-bold text-base">
@@ -353,53 +523,54 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
             )}
 
             {/* ── GRAMMAR ── */}
-            {currentStep.kind === "grammar" && (
-              <div className="space-y-5 py-2">
-                <div className="flex items-center gap-2 text-primary">
-                  <BookOpen className="w-4 h-4" />
-                  <p className="text-xs font-bold uppercase tracking-wider">
-                    Grammar Rule {(currentStep as { index: number }).index + 1}
-                  </p>
-                </div>
-                <p className="text-sm text-foreground leading-relaxed font-medium">
-                  {content.grammarPoints[(currentStep as { index: number }).index].rule}
-                </p>
-                {content.grammarPoints[(currentStep as { index: number }).index].table && (
-                  <div className="rounded-xl border border-border overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-secondary/70">
-                          {content.grammarPoints[(currentStep as { index: number }).index].table!.headers.map((h) => (
-                            <th key={h} className="px-3 py-2 text-left font-bold text-foreground">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {content.grammarPoints[(currentStep as { index: number }).index].table!.rows.map((row, ri) => (
-                          <tr key={ri} className="border-t border-border">
-                            {row.map((cell, ci) => (
-                              <td key={ci} className={cn("px-3 py-2", ci === 0 ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                                {cell}
-                              </td>
+            {currentStep.kind === "grammar" && (() => {
+              const gp = content.grammarPoints[(currentStep as { index: number }).index]
+              return (
+                <div className="space-y-5 py-2">
+                  <div className="flex items-center gap-2 text-primary">
+                    <BookOpen className="w-4 h-4" />
+                    <p className="text-xs font-bold uppercase tracking-wider">
+                      Grammar Rule {(currentStep as { index: number }).index + 1}
+                    </p>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed font-medium">{gp.rule}</p>
+                  {gp.table && (
+                    <div className="rounded-xl border border-border overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-secondary/70">
+                            {gp.table.headers.map(h => (
+                              <th key={h} className="px-3 py-2 text-left font-bold text-foreground">{h}</th>
                             ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <div className="flex gap-2 pt-2">
-                  {stepIdx > 0 && (
-                    <Button variant="outline" onClick={goBack} className="rounded-xl">
-                      <ArrowLeft className="w-4 h-4 mr-1" /> Back
-                    </Button>
+                        </thead>
+                        <tbody>
+                          {gp.table.rows.map((row, ri) => (
+                            <tr key={ri} className="border-t border-border">
+                              {row.map((cell, ci) => (
+                                <td key={ci} className={cn("px-3 py-2", ci === 0 ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
-                  <Button onClick={goNext} className="flex-1 py-3 rounded-xl font-bold">
-                    Got it <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
+                  <div className="flex gap-2 pt-2">
+                    {stepIdx > 0 && (
+                      <Button variant="outline" onClick={goBack} className="rounded-xl">
+                        <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                      </Button>
+                    )}
+                    <Button onClick={goNext} className="flex-1 py-3 rounded-xl font-bold">
+                      Got it <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* ── VOCABULARY ── */}
             {currentStep.kind === "vocab" && (
@@ -414,15 +585,16 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
                       key={v.german}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="flex items-start gap-3 p-3 rounded-xl bg-card border border-border"
+                      transition={{ delay: i * 0.04 }}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border group"
                     >
+                      <SpeakButton text={v.german} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-foreground">{v.german}</p>
                         <p className="text-xs text-muted-foreground">{v.english}</p>
                       </div>
                       {v.example && (
-                        <p className="text-[10px] text-accent italic shrink-0 max-w-[40%] text-right">{v.example}</p>
+                        <p className="text-[10px] text-accent italic shrink-0 max-w-[35%] text-right hidden sm:block">{v.example}</p>
                       )}
                     </motion.div>
                   ))}
@@ -441,9 +613,24 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
             {/* ── DIALOGUE ── */}
             {currentStep.kind === "dialogue" && (
               <div className="space-y-4 py-2">
-                <div className="flex items-center gap-2 text-primary">
-                  <MessageSquare className="w-4 h-4" />
-                  <p className="text-xs font-bold uppercase tracking-wider">Dialogue</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-primary">
+                    <MessageSquare className="w-4 h-4" />
+                    <p className="text-xs font-bold uppercase tracking-wider">Dialogue</p>
+                  </div>
+                  <button
+                    onClick={playDialogueSequence}
+                    disabled={dialoguePlaying}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all",
+                      dialoguePlaying
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    )}
+                  >
+                    <Play className="w-3 h-3" />
+                    {dialoguePlaying ? "Playing..." : "Play all"}
+                  </button>
                 </div>
                 <div className="space-y-3">
                   {content.dialogue.map((line, i) => {
@@ -453,16 +640,19 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
                         key={i}
                         initial={{ opacity: 0, x: isEven ? -12 : 12 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.15 }}
+                        transition={{ delay: i * 0.12 }}
                         className={cn("flex", isEven ? "justify-start" : "justify-end")}
                       >
                         <div className={cn(
-                          "max-w-[85%] p-3 rounded-2xl",
+                          "max-w-[85%] p-3 rounded-2xl relative group",
                           isEven
                             ? "bg-card border border-border rounded-tl-sm"
                             : "bg-primary/10 border border-primary/20 rounded-tr-sm"
                         )}>
-                          <p className="text-[10px] font-bold text-primary mb-1">{line.speaker}</p>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="text-[10px] font-bold text-primary">{line.speaker}</p>
+                            <SpeakButton text={line.german} speaker={line.speaker} />
+                          </div>
                           <p className="text-sm font-semibold text-foreground">{line.german}</p>
                           <p className="text-xs text-muted-foreground mt-1 italic">{line.english}</p>
                         </div>
@@ -498,51 +688,58 @@ export function LessonPlayer({ content, onComplete, onExit }: LessonPlayerProps)
             )}
 
             {/* ── SUMMARY ── */}
-            {currentStep.kind === "summary" && (
-              <div className="space-y-6 py-4">
-                <div className="flex justify-center">
-                  <IgelMascot
-                    mood={score.correct >= score.total * 0.7 ? "celebrate" : "thinking"}
-                    size={80}
-                    breathing
-                  />
-                </div>
-                <div className="text-center space-y-2">
-                  <h2 className="text-xl font-bold text-foreground">Lesson Complete</h2>
-                  <p className="text-3xl font-black text-primary tabular-nums">
-                    {score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0}%
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {score.correct} of {score.total} exercises correct
-                  </p>
-                </div>
-
-                {/* Review hint */}
-                <div className="p-4 rounded-xl bg-accent/10 border border-accent/20">
-                  <p className="text-xs font-bold text-accent mb-1">Review tip</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{content.reviewHint}</p>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setStepIdx(0)
-                      setScore({ correct: 0, total: 0 })
-                    }}
-                    className="rounded-xl"
+            {currentStep.kind === "summary" && (() => {
+              const pct = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0
+              const great = pct >= 70
+              return (
+                <div className="space-y-6 py-4">
+                  <motion.div
+                    className="flex justify-center"
+                    initial={{ scale: 0.5 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 15 }}
                   >
-                    <RotateCcw className="w-4 h-4 mr-1" /> Retry
-                  </Button>
-                  <Button
-                    onClick={() => onComplete(content.lessonId, score.correct, score.total)}
-                    className="flex-1 py-3 rounded-xl font-bold"
-                  >
-                    Complete Lesson <Check className="w-4 h-4 ml-1" />
-                  </Button>
+                    <IgelMascot mood={great ? "celebrate" : "thinking"} size={80} breathing />
+                  </motion.div>
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold text-foreground">Lesson Complete</h2>
+                    <motion.p
+                      className={cn("text-4xl font-black tabular-nums", great ? "text-success" : "text-accent")}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.2 }}
+                    >
+                      {pct}%
+                    </motion.p>
+                    <p className="text-sm text-muted-foreground">
+                      {score.correct} of {score.total} exercises correct
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-accent/10 border border-accent/20">
+                    <p className="text-xs font-bold text-accent mb-1">Review tip</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{content.reviewHint}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => { setStepIdx(0); setScore({ correct: 0, total: 0 }) }}
+                      className="rounded-xl"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1" /> Retry
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        playSound("complete")
+                        onComplete(content.lessonId, score.correct, score.total)
+                      }}
+                      className="flex-1 py-3 rounded-xl font-bold"
+                    >
+                      Complete Lesson <Check className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
           </motion.div>
         </AnimatePresence>
