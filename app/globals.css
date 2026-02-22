@@ -169,29 +169,6 @@
 }
 .animate-node-glow { animation: node-glow 2s ease-in-out infinite; }
 
-/* ── Streak pulse ── */
-@keyframes streak-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
-}
-.animate-streak-pulse { animation: streak-pulse 1.5s ease-in-out infinite; }
-
-/* ── Heart shake ── */
-@keyframes heart-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px) rotate(-5deg); }
-  75% { transform: translateX(3px) rotate(5deg); }
-}
-.animate-heart-shake { animation: heart-shake 0.4s ease-in-out; }
-
-/* ── XP pop ── */
-@keyframes xp-pop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.25); }
-  100% { transform: scale(1); }
-}
-.animate-xp-pop { animation: xp-pop 0.3s ease-in-out; }
-
 /* ── Onboarding progress bar shimmer ── */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

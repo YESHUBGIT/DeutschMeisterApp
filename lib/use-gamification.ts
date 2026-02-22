@@ -1,53 +1,36 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { lessonCatalog } from "@/lib/lesson-catalog"
 
-/* ── XP level thresholds ── */
-const LEVEL_THRESHOLDS = [0, 60, 150, 300, 500, 800, 1200, 1800, 2600, 3600, 5000]
-
-function levelFromXp(xp: number): number {
-  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (xp >= LEVEL_THRESHOLDS[i]) return i + 1
-  }
-  return 1
-}
-
-function xpForLevel(level: number): { current: number; next: number } {
-  const idx = Math.max(0, level - 1)
-  const current = LEVEL_THRESHOLDS[idx] ?? 0
-  const next = LEVEL_THRESHOLDS[idx + 1] ?? current + 1000
-  return { current, next }
-}
-
-/* ── Types ── */
-export interface GamificationState {
-  xp: number
-  streak: number
-  lastActiveDate: string
-  hearts: number
+/* ── Learning progress state (no gamification language) ── */
+export interface LearningProgress {
   completedLessons: string[]
+  lastActiveDate: string
+  activeDays: number
+  minutesStudied: number
+  sessionStartedAt: number | null
 }
 
-const MAX_HEARTS = 5
-const STORAGE_KEY = "deutschmeister-gamification"
-const EVENT_NAME = "gamification-update"
+const STORAGE_KEY = "deutschmeister-progress"
+const EVENT_NAME = "progress-update"
 
 function getToday(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function loadState(): GamificationState {
+function loadState(): LearningProgress {
   if (typeof window === "undefined") {
-    return { xp: 0, streak: 0, lastActiveDate: "", hearts: MAX_HEARTS, completedLessons: [] }
+    return { completedLessons: [], lastActiveDate: "", activeDays: 0, minutesStudied: 0, sessionStartedAt: null }
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as GamificationState
+    if (raw) return JSON.parse(raw) as LearningProgress
   } catch { /* ignore */ }
-  return { xp: 0, streak: 0, lastActiveDate: "", hearts: MAX_HEARTS, completedLessons: [] }
+  return { completedLessons: [], lastActiveDate: "", activeDays: 0, minutesStudied: 0, sessionStartedAt: null }
 }
 
-function persistState(state: GamificationState) {
+function persistState(state: LearningProgress) {
   if (typeof window === "undefined") return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: state }))
@@ -55,62 +38,35 @@ function persistState(state: GamificationState) {
 
 /* ── Hook ── */
 export function useGamification() {
-  const [state, setState] = useState<GamificationState>(loadState)
+  const [state, setState] = useState<LearningProgress>(loadState)
 
   /* Sync across tabs / components */
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<GamificationState>).detail
+      const detail = (e as CustomEvent<LearningProgress>).detail
       if (detail) setState(detail)
     }
     window.addEventListener(EVENT_NAME, handler)
     return () => window.removeEventListener(EVENT_NAME, handler)
   }, [])
 
-  /* Refresh streak on mount */
+  /* Track active day on mount */
   useEffect(() => {
     const today = getToday()
     setState((prev) => {
-      if (prev.lastActiveDate === today) return prev
-
+      if (prev.lastActiveDate === today) {
+        return prev.sessionStartedAt ? prev : { ...prev, sessionStartedAt: Date.now() }
+      }
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       const yesterdayStr = yesterday.toISOString().slice(0, 10)
-
-      const newStreak = prev.lastActiveDate === yesterdayStr ? prev.streak : prev.lastActiveDate === "" ? 0 : 0
-      const next = { ...prev, streak: newStreak, lastActiveDate: today }
-      persistState(next)
-      return next
-    })
-  }, [])
-
-  const addXp = useCallback((amount: number) => {
-    setState((prev) => {
-      const today = getToday()
-      const streakBump = prev.lastActiveDate !== today ? 1 : 0
-      const next: GamificationState = {
+      const dayBump = prev.lastActiveDate === yesterdayStr || prev.lastActiveDate === "" ? 1 : 0
+      const next = {
         ...prev,
-        xp: prev.xp + amount,
-        streak: prev.streak + streakBump,
+        activeDays: prev.activeDays + dayBump,
         lastActiveDate: today,
+        sessionStartedAt: Date.now(),
       }
-      persistState(next)
-      return next
-    })
-  }, [])
-
-  const loseHeart = useCallback(() => {
-    setState((prev) => {
-      if (prev.hearts <= 0) return prev
-      const next = { ...prev, hearts: prev.hearts - 1 }
-      persistState(next)
-      return next
-    })
-  }, [])
-
-  const refillHearts = useCallback(() => {
-    setState((prev) => {
-      const next = { ...prev, hearts: MAX_HEARTS }
       persistState(next)
       return next
     })
@@ -119,31 +75,43 @@ export function useGamification() {
   const completeLesson = useCallback((lessonId: string) => {
     setState((prev) => {
       if (prev.completedLessons.includes(lessonId)) return prev
-      const next: GamificationState = {
+      const elapsed = prev.sessionStartedAt ? Math.round((Date.now() - prev.sessionStartedAt) / 60000) : 0
+      const next: LearningProgress = {
         ...prev,
         completedLessons: [...prev.completedLessons, lessonId],
+        minutesStudied: prev.minutesStudied + Math.max(elapsed, 1),
       }
       persistState(next)
       return next
     })
   }, [])
 
-  const level = useMemo(() => levelFromXp(state.xp), [state.xp])
-  const { current: levelXpStart, next: levelXpEnd } = useMemo(() => xpForLevel(level), [level])
-  const xpInLevel = state.xp - levelXpStart
-  const xpNeeded = levelXpEnd - levelXpStart
-  const progress = Math.min(1, xpInLevel / xpNeeded)
+  /* Derived values */
+  const totalLessons = lessonCatalog.length
+  const completedCount = state.completedLessons.length
+  const overallProgress = totalLessons > 0 ? completedCount / totalLessons : 0
+
+  /* Determine current phase */
+  const currentPhase = useMemo(() => {
+    const pct = overallProgress
+    if (pct < 0.25) return { label: "Quick Wins", phase: 1 as const }
+    if (pct < 0.7) return { label: "Structured Growth", phase: 2 as const }
+    return { label: "Precision & Fluency", phase: 3 as const }
+  }, [overallProgress])
+
+  /* Current module name */
+  const currentModule = useMemo(() => {
+    const next = lessonCatalog.find((l) => !state.completedLessons.includes(l.id))
+    return next?.group ?? "All Complete"
+  }, [state.completedLessons])
 
   return {
     ...state,
-    level,
-    progress,
-    xpInLevel,
-    xpNeeded,
-    maxHearts: MAX_HEARTS,
-    addXp,
-    loseHeart,
-    refillHearts,
+    totalLessons,
+    completedCount,
+    overallProgress,
+    currentPhase,
+    currentModule,
     completeLesson,
   }
 }

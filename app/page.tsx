@@ -12,7 +12,6 @@ import { TutorTab } from "@/components/tabs/tutor-tab"
 import { ProfileScreen } from "@/components/profile-screen"
 import { useGamification } from "@/lib/use-gamification"
 import { useLearnerProfile } from "@/lib/use-learner-profile"
-import { lessonCatalog } from "@/lib/lesson-catalog"
 import { useSoundSettings } from "@/lib/use-sound-settings"
 
 /* ── Tab ordering for slide direction ── */
@@ -34,7 +33,7 @@ export default function Home() {
   const prevTabRef = useRef<AppTab>("home")
   const [direction, setDirection] = useState(0)
 
-  const gamification = useGamification()
+  const progress = useGamification()
   const { profile, updateProfile, completeOnboarding, resetProfile } = useLearnerProfile()
   const { play } = useSoundSettings()
 
@@ -59,11 +58,6 @@ export default function Home() {
     play("complete")
   }, [updateProfile, completeOnboarding, play])
 
-  /* ── Reset for re-onboarding ── */
-  const handleResetProfile = useCallback(() => {
-    resetProfile()
-  }, [resetProfile])
-
   /* ── Tab navigation ── */
   const handleTabChange = useCallback((tab: AppTab) => {
     setDirection(getDirection(prevTabRef.current, tab))
@@ -76,10 +70,9 @@ export default function Home() {
     setDirection(1)
     prevTabRef.current = "home"
     setActiveTab("practice")
-    gamification.addXp(10)
-    gamification.completeLesson(lessonId)
+    progress.completeLesson(lessonId)
     play("correct")
-  }, [gamification, play])
+  }, [progress, play])
 
   const handlePracticeLesson = useCallback((lessonId: string) => {
     setLessonFilter(lessonId)
@@ -109,12 +102,11 @@ export default function Home() {
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       <TopBar
-        xp={gamification.xp}
-        level={gamification.level}
-        progress={gamification.progress}
-        streak={gamification.streak}
-        hearts={gamification.hearts}
-        maxHearts={gamification.maxHearts}
+        completedCount={progress.completedCount}
+        totalLessons={progress.totalLessons}
+        overallProgress={progress.overallProgress}
+        currentModule={progress.currentModule}
+        activeDays={progress.activeDays}
       />
 
       <main className="flex-1 overflow-y-auto pb-20 pt-2">
@@ -131,7 +123,7 @@ export default function Home() {
           >
             {activeTab === "home" && (
               <Pathway
-                completedLessons={gamification.completedLessons}
+                completedLessons={progress.completedLessons}
                 onStartLesson={handleStartLesson}
                 onPracticeLesson={handlePracticeLesson}
                 profile={profile}
@@ -154,15 +146,14 @@ export default function Home() {
             )}
             {activeTab === "profile" && (
               <ProfileScreen
-                xp={gamification.xp}
-                level={gamification.level}
-                streak={gamification.streak}
-                hearts={gamification.hearts}
-                maxHearts={gamification.maxHearts}
-                completedCount={gamification.completedLessons.length}
-                totalLessons={lessonCatalog.length}
+                completedCount={progress.completedCount}
+                totalLessons={progress.totalLessons}
+                activeDays={progress.activeDays}
+                minutesStudied={progress.minutesStudied}
+                currentPhase={progress.currentPhase}
+                currentModule={progress.currentModule}
                 profile={profile}
-                onResetProfile={handleResetProfile}
+                onResetProfile={resetProfile}
               />
             )}
           </motion.div>
