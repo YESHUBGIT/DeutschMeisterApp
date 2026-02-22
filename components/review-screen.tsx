@@ -31,14 +31,14 @@ export function ReviewScreen({ selectedLesson, onLessonChange }: ReviewScreenPro
             className={cn(
               "relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors",
               mode === tab.id
-                ? "text-white"
+                ? "text-primary-foreground"
                 : "text-muted-foreground bg-secondary hover:bg-secondary/80"
             )}
           >
             {mode === tab.id && (
               <motion.div
                 layoutId="reviewToggle"
-                className="absolute inset-0 bg-duo-green rounded-xl"
+                className="absolute inset-0 bg-primary rounded-xl"
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               />
             )}
@@ -50,7 +50,6 @@ export function ReviewScreen({ selectedLesson, onLessonChange }: ReviewScreenPro
         ))}
       </div>
 
-      {/* Content */}
       {mode === "vocab" ? (
         <VocabTab selectedLesson={selectedLesson} onLessonChange={onLessonChange} />
       ) : (

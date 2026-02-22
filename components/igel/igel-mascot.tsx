@@ -11,14 +11,15 @@ interface IgelMascotProps {
   breathing?: boolean
 }
 
+/* Brand-aligned spine colors (teal, amber, coral, midnight) */
 const spineColor: Record<IgelMood, string> = {
   idle: "#8B6914",
-  happy: "#58CC02",
-  sad: "#FF4B4B",
-  celebrate: "#FFC800",
-  cheering: "#58CC02",
+  happy: "#1A8A7D",
+  sad: "#E85D4A",
+  celebrate: "#E8993E",
+  cheering: "#1A8A7D",
   sleeping: "#6B7280",
-  thinking: "#1CB0F6",
+  thinking: "#23B5A5",
 }
 
 const eyeVariant: Record<IgelMood, "open" | "closed" | "sparkle"> = {
@@ -62,23 +63,23 @@ export function IgelMascot({ mood = "idle", size = 48, className, breathing = tr
       {/* Cheeks */}
       {(mood === "happy" || mood === "celebrate" || mood === "cheering") && (
         <>
-          <circle cx="23" cy="36" r="3" fill="#FBBF24" opacity="0.4" />
-          <circle cx="41" cy="36" r="3" fill="#FBBF24" opacity="0.4" />
+          <circle cx="23" cy="36" r="3" fill="#E8993E" opacity="0.35" />
+          <circle cx="41" cy="36" r="3" fill="#E8993E" opacity="0.35" />
         </>
       )}
       {/* Eyes */}
       {eyes === "open" && (
         <>
-          <circle cx="27" cy="31" r="2.5" fill="#1a1a1a" />
-          <circle cx="37" cy="31" r="2.5" fill="#1a1a1a" />
+          <circle cx="27" cy="31" r="2.5" fill="#0F1A2E" />
+          <circle cx="37" cy="31" r="2.5" fill="#0F1A2E" />
           <circle cx="28" cy="30" r="0.8" fill="#FFFFFF" />
           <circle cx="38" cy="30" r="0.8" fill="#FFFFFF" />
         </>
       )}
       {eyes === "sparkle" && (
         <>
-          <circle cx="27" cy="31" r="2.5" fill="#1a1a1a" />
-          <circle cx="37" cy="31" r="2.5" fill="#1a1a1a" />
+          <circle cx="27" cy="31" r="2.5" fill="#0F1A2E" />
+          <circle cx="37" cy="31" r="2.5" fill="#0F1A2E" />
           <circle cx="28" cy="30" r="1" fill="#FFFFFF" />
           <circle cx="38" cy="30" r="1" fill="#FFFFFF" />
           <circle cx="26" cy="29.5" r="0.5" fill="#FFFFFF" />
@@ -87,39 +88,39 @@ export function IgelMascot({ mood = "idle", size = 48, className, breathing = tr
       )}
       {eyes === "closed" && (
         <>
-          <path d="M24 31 Q27 33 30 31" stroke="#1a1a1a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-          <path d="M34 31 Q37 33 40 31" stroke="#1a1a1a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+          <path d="M24 31 Q27 33 30 31" stroke="#0F1A2E" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+          <path d="M34 31 Q37 33 40 31" stroke="#0F1A2E" strokeWidth="1.5" fill="none" strokeLinecap="round" />
         </>
       )}
       {/* Nose */}
-      <ellipse cx="32" cy="35" rx="2" ry="1.5" fill="#1a1a1a" />
+      <ellipse cx="32" cy="35" rx="2" ry="1.5" fill="#0F1A2E" />
       {/* Mouth */}
       {(mood === "happy" || mood === "celebrate" || mood === "cheering") && (
-        <path d="M27 38 Q32 43 37 38" stroke="#1a1a1a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        <path d="M27 38 Q32 43 37 38" stroke="#0F1A2E" strokeWidth="1.5" fill="none" strokeLinecap="round" />
       )}
       {mood === "sad" && (
-        <path d="M28 40 Q32 37 36 40" stroke="#1a1a1a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        <path d="M28 40 Q32 37 36 40" stroke="#0F1A2E" strokeWidth="1.5" fill="none" strokeLinecap="round" />
       )}
       {mood === "idle" && (
-        <path d="M29 38.5 Q32 40 35 38.5" stroke="#1a1a1a" strokeWidth="1.3" fill="none" strokeLinecap="round" />
+        <path d="M29 38.5 Q32 40 35 38.5" stroke="#0F1A2E" strokeWidth="1.3" fill="none" strokeLinecap="round" />
       )}
       {mood === "sleeping" && (
         <>
-          <line x1="29" y1="39" x2="35" y2="39" stroke="#1a1a1a" strokeWidth="1.3" strokeLinecap="round" />
-          <text x="44" y="24" fontSize="8" fill="#1CB0F6" fontWeight="bold">z</text>
-          <text x="48" y="18" fontSize="6" fill="#1CB0F6" fontWeight="bold">z</text>
+          <line x1="29" y1="39" x2="35" y2="39" stroke="#0F1A2E" strokeWidth="1.3" strokeLinecap="round" />
+          <text x="44" y="24" fontSize="8" fill="#23B5A5" fontWeight="bold">z</text>
+          <text x="48" y="18" fontSize="6" fill="#23B5A5" fontWeight="bold">z</text>
         </>
       )}
       {mood === "thinking" && (
         <>
-          <circle cx="28" cy="38" r="0.5" fill="#1a1a1a" />
-          <circle cx="32" cy="38.5" r="0.5" fill="#1a1a1a" />
-          <circle cx="36" cy="38" r="0.5" fill="#1a1a1a" />
+          <circle cx="28" cy="38" r="0.5" fill="#0F1A2E" />
+          <circle cx="32" cy="38.5" r="0.5" fill="#0F1A2E" />
+          <circle cx="36" cy="38" r="0.5" fill="#0F1A2E" />
         </>
       )}
       {/* Crown for celebrate */}
       {mood === "celebrate" && (
-        <path d="M24 20 L28 14 L32 18 L36 14 L40 20 Z" fill="#FFC800" stroke="#E5A800" strokeWidth="0.5" />
+        <path d="M24 20 L28 14 L32 18 L36 14 L40 20 Z" fill="#E8993E" stroke="#D08530" strokeWidth="0.5" />
       )}
     </svg>
   )

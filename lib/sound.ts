@@ -1,4 +1,4 @@
-export type SoundType = "success" | "streak" | "sad" | "complete"
+export type SoundType = "success" | "correct" | "streak" | "sad" | "complete"
 
 let audioContext: AudioContext | null = null
 
@@ -34,6 +34,7 @@ export const playSound = async (type: SoundType) => {
   const now = context.currentTime
   switch (type) {
     case "success":
+    case "correct":
       playTone(520, 0.15, now)
       playTone(660, 0.15, now + 0.16)
       break
