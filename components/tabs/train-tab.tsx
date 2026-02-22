@@ -1,221 +1,46 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useMemo, useState, useCallback } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Check, X, RotateCcw, Trophy, Target, Brain, Zap, BookOpen } from "lucide-react"
+import { Check, X, RotateCcw, Trophy, ChevronRight, Brain, Target, Zap, BookOpen, Shuffle, Volume2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { lessonCatalog } from "@/lib/lesson-catalog"
+import { getAllPracticeExercises, getLessonNames, type PracticeExercise } from "@/lib/lesson-content"
 
-type ExerciseType = "translation" | "fillBlank" | "multipleChoice" | "verbPosition" | null
+/* ═══════════════════════════════════════
+   Unified Practice Tab
+   Merges interactive lesson exercises
+   with filterable lesson tags
+   ═══════════════════════════════════════ */
 
-const exercises = {
-  translation: [
-    { id: 1, german: "Ich bin Student.", english: "I am a student.", lessonId: "personal-pronouns" },
-    { id: 2, german: "Du bist mein Freund.", english: "You are my friend.", lessonId: "personal-pronouns" },
-    { id: 3, german: "Sie sind sehr nett.", english: "You are very nice.", lessonId: "personal-pronouns" },
-    { id: 4, german: "Wir lernen Deutsch.", english: "We are learning German.", lessonId: "personal-pronouns" },
-    { id: 5, german: "Das ist mein Bruder.", english: "This is my brother.", lessonId: "possessive-articles" },
-    { id: 6, german: "Ich freue mich auf die Party.", english: "I am looking forward to the party.", lessonId: "reflexive-verbs" },
-    { id: 7, german: "Er interessiert sich für Musik.", english: "He is interested in music.", lessonId: "reflexive-verbs" },
-    { id: 8, german: "Ich warte auf den Bus.", english: "I am waiting for the bus.", lessonId: "verbs-with-prep" },
-    { id: 9, german: "Sie kommt aus Deutschland.", english: "She comes from Germany.", lessonId: "prepositions-by-case" },
-    { id: 10, german: "Möchtest du einen Kaffee?", english: "Would you like a coffee?", lessonId: "konjunktiv-2" },
-  ],
-  fillBlank: [
-    { id: 1, sentence: "___ bin Student.", answer: "Ich", options: ["Ich", "Du", "Er", "Wir"], hint: "I am a student", lessonId: "personal-pronouns" },
-    { id: 2, sentence: "Das ist ___ Buch.", answer: "mein", options: ["mein", "dein", "sein", "ihr"], hint: "my book", lessonId: "possessive-articles" },
-    { id: 3, sentence: "Ich fahre ___ dem Bus.", answer: "mit", options: ["mit", "für", "ohne", "durch"], hint: "by bus (Dative prep)", lessonId: "prepositions-by-case" },
-    { id: 4, sentence: "Das Geschenk ist ___ dich.", answer: "für", options: ["für", "mit", "von", "zu"], hint: "for you (Accusative prep)", lessonId: "prepositions-by-case" },
-    { id: 5, sentence: "Ich ___ schwimmen.", answer: "kann", options: ["kann", "kannst", "können", "könnt"], hint: "I can swim", lessonId: "modal-verbs" },
-    { id: 6, sentence: "Er ___ seine Hausaufgaben machen.", answer: "muss", options: ["muss", "musst", "müssen", "müsst"], hint: "He must do", lessonId: "modal-verbs" },
-    { id: 7, sentence: "Ich bleibe zu Hause, ___ ich krank bin.", answer: "weil", options: ["weil", "und", "aber", "oder"], hint: "because (verb to end)", lessonId: "connectors-verb-position" },
-    { id: 8, sentence: "___ wartest du?", answer: "Worauf", options: ["Worauf", "Auf wen", "Warum", "Wohin"], hint: "What are you waiting for? (thing)", lessonId: "question-words" },
-    { id: 9, sentence: "Ich sehe ___ Mann.", answer: "den", options: ["der", "den", "dem", "des"], hint: "Accusative masculine", lessonId: "cases-basics" },
-    { id: 10, sentence: "Ich helfe ___ Freund.", answer: "meinem", options: ["meinen", "meinem", "mein", "meine"], hint: "Dative - helfen takes Dative!", lessonId: "cases-basics" },
-  ],
-  multipleChoice: [
-    { 
-      id: 1, 
-      question: "Which preposition always takes DATIVE?", 
-      answer: "mit", 
-      options: ["für", "mit", "durch", "ohne"],
-      hint: "Think: with whom",
-      lessonId: "prepositions-by-case",
-    },
-    { 
-      id: 2, 
-      question: "Which connector sends the verb to the END?", 
-      answer: "weil", 
-      options: ["und", "weil", "aber", "deshalb"],
-      hint: "Type 1 connector",
-      lessonId: "connectors-verb-position",
-    },
-    { 
-      id: 3, 
-      question: "'Worüber' is used to ask about...", 
-      answer: "things", 
-      options: ["people", "things", "places", "times"],
-      hint: "wo + preposition = for things",
-      lessonId: "question-words",
-    },
-    { 
-      id: 4, 
-      question: "Which verb ALWAYS takes Dative?", 
-      answer: "helfen", 
-      options: ["sehen", "helfen", "haben", "machen"],
-      hint: "Ich helfe DIR",
-      lessonId: "cases-basics",
-    },
-    { 
-      id: 5, 
-      question: "What is 'ich möchte'?", 
-      answer: "I would like", 
-      options: ["I must", "I can", "I would like", "I want"],
-      hint: "Polite form of wollen",
-      lessonId: "konjunktiv-2",
-    },
-    { 
-      id: 6, 
-      question: "'-ung' ending nouns are always...", 
-      answer: "feminine (die)", 
-      options: ["masculine (der)", "feminine (die)", "neuter (das)", "varies"],
-      hint: "die Zeitung, die Übung",
-      lessonId: "articles-gender",
-    },
-    { 
-      id: 7, 
-      question: "In 'Ich sehe den Mann', why 'den'?", 
-      answer: "Direct object = Accusative", 
-      options: ["Subject = Nominative", "Direct object = Accusative", "Indirect object = Dative", "Possession = Genitive"],
-      hint: "sehen takes what case?",
-      lessonId: "cases-basics",
-    },
-    { 
-      id: 8, 
-      question: "'sich freuen auf' means...", 
-      answer: "to look forward to", 
-      options: ["to be happy about", "to look forward to", "to laugh at", "to think about"],
-      hint: "Future anticipation",
-      lessonId: "reflexive-verbs",
-    },
-    { 
-      id: 9, 
-      question: "Formal 'you' (Sie) is always...", 
-      answer: "capitalized", 
-      options: ["lowercase", "capitalized", "both depending on position", "optional"],
-      hint: "Respect in writing",
-      lessonId: "personal-pronouns",
-    },
-    { 
-      id: 10, 
-      question: "'Könnten Sie mir helfen?' is more ___ than 'Können Sie...'", 
-      answer: "polite", 
-      options: ["casual", "polite", "formal", "informal"],
-      hint: "Konjunktiv II effect",
-      lessonId: "konjunktiv-2",
-    },
-  ],
-  verbPosition: [
-    {
-      id: 1,
-      question: "Put in correct order: ich / müde / bin / weil",
-      answer: "weil ich müde bin",
-      options: ["weil ich müde bin", "weil müde ich bin", "weil bin ich müde", "ich weil müde bin"],
-      hint: "'weil' sends verb to END",
-      lessonId: "connectors-verb-position",
-    },
-    {
-      id: 2,
-      question: "Put in correct order: deshalb / ich / bleibe / zu Hause",
-      answer: "Deshalb bleibe ich zu Hause",
-      options: ["Deshalb bleibe ich zu Hause", "Deshalb ich bleibe zu Hause", "Ich deshalb bleibe zu Hause", "Bleibe deshalb ich zu Hause"],
-      hint: "'deshalb' = verb comes right after",
-      lessonId: "connectors-verb-position",
-    },
-    {
-      id: 3,
-      question: "Put in correct order: ich / gut / schwimmen / kann",
-      answer: "Ich kann gut schwimmen",
-      options: ["Ich kann gut schwimmen", "Ich gut kann schwimmen", "Ich schwimmen kann gut", "Kann ich gut schwimmen"],
-      hint: "Modal verb position",
-      lessonId: "modal-verbs",
-    },
-    {
-      id: 4,
-      question: "Put in correct order: der Film / um 8 / an / fängt",
-      answer: "Der Film fängt um 8 an",
-      options: ["Der Film fängt um 8 an", "Der Film anfängt um 8", "Der Film an um 8 fängt", "Fängt der Film um 8 an"],
-      hint: "Separable verb 'anfangen'",
-      lessonId: "separable-verbs",
-    },
-    {
-      id: 5,
-      question: "Put in correct order: ich / auf / meine Freundin / warte",
-      answer: "Ich warte auf meine Freundin",
-      options: ["Ich warte auf meine Freundin", "Ich auf warte meine Freundin", "Warte ich auf meine Freundin", "Ich warte meine Freundin auf"],
-      hint: "warten auf + Accusative",
-      lessonId: "verbs-with-prep",
-    },
-    {
-      id: 6,
-      question: "What happens after 'obwohl'?",
-      answer: "Verb goes to end",
-      options: ["Verb stays in position 2", "Verb goes to end", "Verb comes first", "No change"],
-      hint: "Type 1 connector",
-      lessonId: "connectors-verb-position",
-    },
-    {
-      id: 7,
-      question: "Put in correct order: dass / er / krank / ist / ich / glaube",
-      answer: "Ich glaube, dass er krank ist",
-      options: ["Ich glaube, dass er krank ist", "Ich glaube, dass ist er krank", "Dass er krank ist, ich glaube", "Ich dass glaube er krank ist"],
-      hint: "'dass' sends verb to end of subordinate clause",
-      lessonId: "connectors-verb-position",
-    },
-    {
-      id: 8,
-      question: "When 'weil' clause comes FIRST, what happens?",
-      answer: "Main clause verb comes right after",
-      options: ["Nothing special", "Main clause verb comes right after", "Main clause verb goes to end too", "Both verbs in middle"],
-      hint: "Verb-verb at the comma",
-      lessonId: "connectors-verb-position",
-    },
-  ],
+type ExerciseCategory = "all" | "multiple-choice" | "fill-blank" | "reorder" | "translation"
+
+const CATEGORIES: { id: ExerciseCategory; label: string; icon: typeof Brain; desc: string }[] = [
+  { id: "all",             label: "All Types",    icon: Shuffle,  desc: "Mix of every exercise type" },
+  { id: "multiple-choice", label: "Quiz",         icon: Zap,      desc: "Pick the right answer" },
+  { id: "fill-blank",      label: "Fill Blank",   icon: Target,   desc: "Complete the sentence" },
+  { id: "reorder",         label: "Word Order",   icon: BookOpen,  desc: "Arrange words correctly" },
+  { id: "translation",     label: "Translate",    icon: Brain,    desc: "Type the translation" },
+]
+
+/* ── TTS helper ── */
+function speakDE(text: string) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(text)
+  u.lang = "de-DE"
+  u.rate = 0.85
+  const voices = window.speechSynthesis.getVoices()
+  const de = voices.find(v => v.lang.startsWith("de"))
+  if (de) u.voice = de
+  window.speechSynthesis.speak(u)
 }
 
-const exerciseTypes = [
-  { 
-    id: "translation" as const, 
-    title: "Translation Practice", 
-    description: "Translate German sentences to English",
-    icon: Brain,
-    color: "bg-blue-100 text-blue-700"
-  },
-  { 
-    id: "fillBlank" as const, 
-    title: "Fill in the Blank", 
-    description: "Choose the correct word",
-    icon: Target,
-    color: "bg-green-100 text-green-700"
-  },
-  { 
-    id: "multipleChoice" as const, 
-    title: "Grammar Quiz", 
-    description: "Test your knowledge of grammar rules",
-    icon: Zap,
-    color: "bg-amber-100 text-amber-700"
-  },
-  { 
-    id: "verbPosition" as const, 
-    title: "Verb Position", 
-    description: "Practice word order with connectors",
-    icon: BookOpen,
-    color: "bg-purple-100 text-purple-700"
-  },
-]
+function normalizeAnswer(s: string): string {
+  return s.toLowerCase().replace(/\s+([?!.,;:])/g, "$1").replace(/\s+/g, " ").trim()
+}
 
 interface TrainTabProps {
   selectedLesson?: string
@@ -223,163 +48,184 @@ interface TrainTabProps {
 }
 
 export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
-  const [selectedType, setSelectedType] = useState<ExerciseType>(null)
+  /* ── State ── */
+  const [category, setCategory] = useState<ExerciseCategory>("all")
   const [localLesson, setLocalLesson] = useState("all")
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [exerciseStarted, setExerciseStarted] = useState(false)
+  const [currentIdx, setCurrentIdx] = useState(0)
   const [userAnswer, setUserAnswer] = useState("")
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [reorderPicked, setReorderPicked] = useState<string[]>([])
+  const [reorderPool, setReorderPool] = useState<string[]>([])
   const [showResult, setShowResult] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
-  const [showHint, setShowHint] = useState(false)
   const [score, setScore] = useState({ correct: 0, total: 0 })
+  const [showHint, setShowHint] = useState(false)
 
   const lessonValue = selectedLesson ?? localLesson
   const handleLessonValueChange = onLessonChange ?? setLocalLesson
 
-  const lessonCounts = useMemo(() => {
-    return exerciseTypes.reduce<Record<string, number>>((acc, type) => {
-      const items = exercises[type.id]
-      acc[type.id] = lessonValue === "all"
-        ? items.length
-        : items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === lessonValue).length
-      return acc
-    }, {})
-  }, [lessonValue])
+  /* ── Build exercise list ── */
+  const allExercises = useMemo(() => getAllPracticeExercises(), [])
+  const lessonNames = useMemo(() => getLessonNames(), [])
 
-  const filteredExercises = useMemo(() => {
-    if (!selectedType) {
-      return []
+  const filtered = useMemo(() => {
+    let list = allExercises
+    if (lessonValue !== "all") list = list.filter(e => e.lessonId === lessonValue)
+    if (category !== "all") list = list.filter(e => e.kind === category)
+    return list
+  }, [allExercises, lessonValue, category])
+
+  const currentExercise: PracticeExercise | undefined = filtered[currentIdx]
+  const isLast = currentIdx >= filtered.length - 1
+
+  /* ── Counts per category ── */
+  const categoryCounts = useMemo(() => {
+    const base = lessonValue === "all" ? allExercises : allExercises.filter(e => e.lessonId === lessonValue)
+    const counts: Record<string, number> = { all: base.length }
+    for (const cat of CATEGORIES) {
+      if (cat.id !== "all") counts[cat.id] = base.filter(e => e.kind === cat.id).length
     }
+    return counts
+  }, [allExercises, lessonValue])
 
-    const items = exercises[selectedType]
-    if (lessonValue === "all") {
-      return items
-    }
-
-    return items.filter((exercise) => (exercise as { lessonId?: string }).lessonId === lessonValue)
-  }, [lessonValue, selectedType])
-
-  const currentExercises = filteredExercises
-  const currentExercise = currentExercises[currentIndex]
-  const isLastExercise = currentIndex === currentExercises.length - 1
-
-  const handleLessonChange = (value: string) => {
-    handleLessonValueChange(value)
-    setCurrentIndex(0)
+  /* ── Handlers ── */
+  const resetAll = useCallback(() => {
+    setExerciseStarted(false)
+    setCurrentIdx(0)
     setUserAnswer("")
     setSelectedOption(null)
+    setReorderPicked([])
+    setReorderPool([])
     setShowResult(false)
     setIsCorrect(false)
-    setShowHint(false)
-  }
-
-  const handleSelectType = (type: ExerciseType) => {
-    setSelectedType(type)
-    setCurrentIndex(0)
-    setUserAnswer("")
-    setSelectedOption(null)
-    setShowResult(false)
-    setIsCorrect(false)
-    setShowHint(false)
-  }
-
-  const checkAnswer = () => {
-    let correct = false
-    
-    if (selectedType === "translation") {
-      const userNormalized = userAnswer.toLowerCase().trim().replace(/[.,!?]/g, "")
-      const correctNormalized = (currentExercise as typeof exercises.translation[0]).english.toLowerCase().replace(/[.,!?]/g, "")
-      correct = userNormalized === correctNormalized
-    } else {
-      correct = selectedOption === (currentExercise as typeof exercises.fillBlank[0]).answer
-    }
-    
-    setIsCorrect(correct)
-    setShowResult(true)
-    setScore(prev => ({
-      correct: correct ? prev.correct + 1 : prev.correct,
-      total: prev.total + 1
-    }))
-  }
-
-  const nextExercise = () => {
-    if (isLastExercise) {
-      return
-    }
-    setCurrentIndex(prev => prev + 1)
-    setUserAnswer("")
-    setSelectedOption(null)
-    setShowResult(false)
-    setShowHint(false)
-  }
-
-  const resetExercise = () => {
-    setSelectedType(null)
-    setCurrentIndex(0)
-    setUserAnswer("")
-    setSelectedOption(null)
-    setShowResult(false)
     setScore({ correct: 0, total: 0 })
     setShowHint(false)
-  }
+  }, [])
 
-  // Exercise Selection Screen
-  if (!selectedType) {
+  const startExercises = useCallback((cat: ExerciseCategory) => {
+    setCategory(cat)
+    setCurrentIdx(0)
+    setScore({ correct: 0, total: 0 })
+    setExerciseStarted(true)
+    setShowResult(false)
+    setUserAnswer("")
+    setSelectedOption(null)
+    setShowHint(false)
+  }, [])
+
+  /* Init reorder pool when exercise changes */
+  const initReorder = useCallback((ex: PracticeExercise) => {
+    if (ex.kind === "reorder" && ex.words) {
+      const shuffled = [...ex.words].sort(() => Math.random() - 0.5)
+      setReorderPool(shuffled)
+      setReorderPicked([])
+    }
+  }, [])
+
+  const checkAnswer = useCallback(() => {
+    if (!currentExercise) return
+    let correct = false
+    const ex = currentExercise
+
+    if (ex.kind === "translation") {
+      correct = normalizeAnswer(userAnswer) === normalizeAnswer(ex.answer)
+    } else if (ex.kind === "reorder") {
+      correct = normalizeAnswer(reorderPicked.join(" ")) === normalizeAnswer(ex.answer)
+    } else if (ex.kind === "multiple-choice" || ex.kind === "fill-blank") {
+      correct = selectedOption === ex.answer
+    }
+
+    setIsCorrect(correct)
+    setShowResult(true)
+    setScore(p => ({ correct: correct ? p.correct + 1 : p.correct, total: p.total + 1 }))
+  }, [currentExercise, userAnswer, reorderPicked, selectedOption])
+
+  const nextExercise = useCallback(() => {
+    if (isLast) return
+    const nextIdx = currentIdx + 1
+    setCurrentIdx(nextIdx)
+    setUserAnswer("")
+    setSelectedOption(null)
+    setShowResult(false)
+    setShowHint(false)
+    const nextEx = filtered[nextIdx]
+    if (nextEx) initReorder(nextEx)
+  }, [isLast, currentIdx, filtered, initReorder])
+
+  const handleLessonChange = useCallback((v: string) => {
+    handleLessonValueChange(v)
+    resetAll()
+  }, [handleLessonValueChange, resetAll])
+
+  /* ── Auto-init reorder when exercise starts or changes ── */
+  const startWithInit = useCallback((cat: ExerciseCategory) => {
+    startExercises(cat)
+    // We need to find the first exercise of this category
+    const base = lessonValue === "all" ? allExercises : allExercises.filter(e => e.lessonId === lessonValue)
+    const list = cat === "all" ? base : base.filter(e => e.kind === cat)
+    if (list[0]?.kind === "reorder" && list[0].words) {
+      setReorderPool([...list[0].words].sort(() => Math.random() - 0.5))
+      setReorderPicked([])
+    }
+  }, [startExercises, lessonValue, allExercises])
+
+  /* ═══════════════════════════════════════
+     RENDER: Category Selection
+     ═══════════════════════════════════════ */
+  if (!exerciseStarted) {
     return (
-      <div className="space-y-6">
-        <div className="text-center space-y-4 py-6">
-          <h1 className="text-4xl font-bold text-foreground">Training Mode</h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Practice what you learned in the lessons with interactive exercises
+      <div className="space-y-5">
+        <div className="text-center space-y-2 py-4">
+          <h1 className="text-2xl font-bold text-foreground">Practice</h1>
+          <p className="text-sm text-muted-foreground">
+            Sharpen your skills with exercises from your lessons
           </p>
         </div>
 
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="font-semibold">Lesson Filter</p>
-                <p className="text-sm text-muted-foreground">Choose a lesson or practice everything.</p>
-              </div>
-              <Select value={lessonValue} onValueChange={handleLessonChange}>
-                <SelectTrigger className="w-full md:w-[320px]">
-                  <SelectValue placeholder="Select lesson" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Lessons</SelectItem>
-                  {lessonCatalog.map((lesson) => (
-                    <SelectItem key={lesson.id} value={lesson.id}>
-                      {lesson.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Lesson Filter */}
+        <div className="p-3 rounded-xl bg-card border border-border">
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+            Filter by lesson
+          </label>
+          <Select value={lessonValue} onValueChange={handleLessonChange}>
+            <SelectTrigger className="rounded-lg bg-secondary border-border">
+              <SelectValue placeholder="All Lessons" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Lessons</SelectItem>
+              {lessonNames.map(ln => (
+                <SelectItem key={ln.id} value={ln.id}>{ln.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {exerciseTypes.map((type) => {
-            const Icon = type.icon
+        {/* Category Cards */}
+        <div className="grid grid-cols-2 gap-3">
+          {CATEGORIES.map(cat => {
+            const Icon = cat.icon
+            const count = categoryCounts[cat.id] ?? 0
             return (
-              <Card 
-                key={type.id}
-                className="cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all"
-                onClick={() => handleSelectType(type.id)}
+              <motion.button
+                key={cat.id}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => count > 0 && startWithInit(cat.id)}
+                disabled={count === 0}
+                className={cn(
+                  "p-4 rounded-xl border text-left transition-all space-y-2",
+                  count > 0
+                    ? "bg-card border-border hover:border-primary/50 cursor-pointer"
+                    : "bg-card/50 border-border/50 opacity-50 cursor-not-allowed"
+                )}
               >
-                <CardHeader className="text-center">
-                  <div className={cn("w-16 h-16 mx-auto rounded-full flex items-center justify-center", type.color)}>
-                    <Icon className="w-8 h-8" />
-                  </div>
-                  <CardTitle className="mt-4">{type.title}</CardTitle>
-                  <CardDescription>{type.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <p className="text-sm text-muted-foreground">
-                    {lessonCounts[type.id]} exercises
-                  </p>
-                </CardContent>
-              </Card>
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Icon className="w-5 h-5 text-primary" />
+                </div>
+                <p className="text-sm font-bold text-foreground">{cat.label}</p>
+                <p className="text-[11px] text-muted-foreground leading-snug">{cat.desc}</p>
+                <p className="text-xs font-medium text-primary">{count} exercises</p>
+              </motion.button>
             )
           })}
         </div>
@@ -387,195 +233,281 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
     )
   }
 
-  // Completion Screen
-  if (showResult && isLastExercise) {
-    const percentage = Math.round((score.correct / currentExercises.length) * 100)
+  /* ═══════════════════════════════════════
+     RENDER: Completion Screen
+     ═══════════════════════════════════════ */
+  if (showResult && isLast) {
+    const pct = filtered.length > 0 ? Math.round((score.correct / filtered.length) * 100) : 0
     return (
-      <div className="space-y-6">
-        <Button variant="ghost" onClick={resetExercise}>
-          ← Back to Exercise Types
-        </Button>
+      <div className="space-y-6 py-4">
+        <motion.div
+          className="mx-auto w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center"
+          initial={{ scale: 0.5, rotate: -10 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 200 }}
+        >
+          <Trophy className="w-10 h-10 text-primary" />
+        </motion.div>
 
-        <Card className="max-w-md mx-auto">
-          <CardContent className="py-8 text-center space-y-6">
-            <div className="w-24 h-24 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-              <Trophy className="w-12 h-12 text-primary" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">Exercise Complete!</h2>
-              <p className="text-4xl font-bold text-primary">{percentage}%</p>
-              <p className="text-muted-foreground">
-                You got {score.correct} out of {currentExercises.length} correct
-              </p>
-            </div>
-            <Button onClick={resetExercise} size="lg">
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Try Another Exercise
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-bold text-foreground">Practice Complete!</h2>
+          <motion.p
+            className={cn("text-4xl font-black tabular-nums", pct >= 70 ? "text-success" : "text-accent")}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", delay: 0.15 }}
+          >
+            {pct}%
+          </motion.p>
+          <p className="text-sm text-muted-foreground">
+            {score.correct} of {filtered.length} correct
+          </p>
+        </div>
 
-  if (selectedType && currentExercises.length === 0) {
-    return (
-      <div className="space-y-6">
-        <Button variant="ghost" onClick={resetExercise}>
-          ← Back to Exercise Types
-        </Button>
-        <Card>
-          <CardContent className="py-8 text-center space-y-3">
-            <h2 className="text-2xl font-bold">No exercises found</h2>
-            <p className="text-muted-foreground">
-              Try a different lesson or switch back to All Lessons.
-            </p>
-            <Select value={lessonValue} onValueChange={handleLessonChange}>
-              <SelectTrigger className="w-full max-w-sm mx-auto">
-                <SelectValue placeholder="Select lesson" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Lessons</SelectItem>
-                {lessonCatalog.map((lesson) => (
-                  <SelectItem key={lesson.id} value={lesson.id}>
-                    {lesson.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Exercise Screen
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={resetExercise}>
-          ← Back
-        </Button>
-        <div className="text-sm text-muted-foreground">
-          Question {currentIndex + 1} of {currentExercises.length}
+        <div className="flex gap-2">
+          <Button variant="outline" className="rounded-xl" onClick={resetAll}>
+            <RotateCcw className="w-4 h-4 mr-1" /> Back
+          </Button>
+          <Button className="flex-1 rounded-xl font-bold" onClick={() => {
+            setCurrentIdx(0)
+            setScore({ correct: 0, total: 0 })
+            setShowResult(false)
+            setUserAnswer("")
+            setSelectedOption(null)
+            setShowHint(false)
+            if (filtered[0]) initReorder(filtered[0])
+          }}>
+            <RotateCcw className="w-4 h-4 mr-1" /> Retry
+          </Button>
         </div>
       </div>
+    )
+  }
 
-      {/* Progress */}
-      <div className="h-2 bg-secondary rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-primary transition-all duration-300"
-          style={{ width: `${((currentIndex + 1) / currentExercises.length) * 100}%` }}
+  /* ═══════════════════════════════════════
+     RENDER: No Exercises
+     ═══════════════════════════════════════ */
+  if (!currentExercise) {
+    return (
+      <div className="space-y-4 py-8 text-center">
+        <p className="text-lg font-bold text-foreground">No exercises found</p>
+        <p className="text-sm text-muted-foreground">Try a different lesson or category.</p>
+        <Button variant="outline" onClick={resetAll} className="rounded-xl">
+          <ChevronRight className="w-4 h-4 mr-1 rotate-180" /> Back
+        </Button>
+      </div>
+    )
+  }
+
+  /* ═══════════════════════════════════════
+     RENDER: Exercise
+     ═══════════════════════════════════════ */
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={resetAll} className="text-muted-foreground">
+          <ChevronRight className="w-4 h-4 mr-1 rotate-180" /> Back
+        </Button>
+        <span className="text-xs text-muted-foreground font-medium tabular-nums">
+          {currentIdx + 1} / {filtered.length}
+        </span>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
+          {currentExercise.kind}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+        <motion.div
+          className="h-full bg-primary"
+          initial={{ width: 0 }}
+          animate={{ width: `${((currentIdx + 1) / filtered.length) * 100}%` }}
+          transition={{ type: "spring", stiffness: 200, damping: 25 }}
         />
       </div>
 
-      {/* Exercise Card */}
-      <Card className="max-w-xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-center">
-            {selectedType === "translation" && "Translate to English"}
-            {selectedType === "fillBlank" && "Fill in the Blank"}
-            {selectedType === "multipleChoice" && "Choose the Correct Answer"}
-            {selectedType === "verbPosition" && "Word Order Challenge"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Question */}
-          <div className="text-center p-5 sm:p-6 bg-secondary rounded-lg">
-            <p className="text-lg sm:text-2xl font-bold text-foreground break-words">
-              {selectedType === "translation" && (currentExercise as typeof exercises.translation[0]).german}
-              {selectedType === "fillBlank" && (currentExercise as typeof exercises.fillBlank[0]).sentence}
-              {(selectedType === "multipleChoice" || selectedType === "verbPosition") && (currentExercise as typeof exercises.multipleChoice[0]).question}
-            </p>
-            {"hint" in currentExercise && (
-              <div className="mt-4 flex flex-col items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowHint((prev) => !prev)}
-                >
-                  {showHint ? "Hide hint" : "Show hint"}
-                </Button>
-                {showHint && (
-                  <p className="text-sm text-muted-foreground">Hint: {currentExercise.hint}</p>
-                )}
-              </div>
+      {/* Lesson tag */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+          {currentExercise.lessonId.replace(/-/g, " ")}
+        </span>
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${currentIdx}-${category}`}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-4"
+        >
+          {/* Prompt */}
+          <div className="p-4 rounded-xl bg-card border border-border">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-base font-semibold text-foreground leading-relaxed flex-1">{currentExercise.prompt}</p>
+              {currentExercise.kind !== "translation" && (
+                <button onClick={() => speakDE(currentExercise.answer)} className="shrink-0 p-1 text-muted-foreground hover:text-primary">
+                  <Volume2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {showHint && currentExercise.explanation && (
+              <p className="mt-2 text-xs text-muted-foreground italic">{currentExercise.explanation}</p>
             )}
           </div>
 
-          {/* Answer Input */}
-          {selectedType === "translation" && (
-            <Input
-              placeholder="Type your translation..."
-              value={userAnswer}
-              onChange={(e) => setUserAnswer(e.target.value)}
-              disabled={showResult}
-              className="text-center text-lg"
-            />
-          )}
-
-          {/* Options */}
-          {(selectedType === "fillBlank" || selectedType === "multipleChoice" || selectedType === "verbPosition") && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(currentExercise as typeof exercises.fillBlank[0]).options.map((option) => (
-                <Button
-                  key={option}
-                  variant={selectedOption === option ? "default" : "outline"}
-                  onClick={() => !showResult && setSelectedOption(option)}
+          {/* ── Multiple Choice / Fill Blank ── */}
+          {(currentExercise.kind === "multiple-choice" || currentExercise.kind === "fill-blank") && currentExercise.options && (
+            <div className="grid grid-cols-1 gap-2">
+              {currentExercise.options.map(opt => (
+                <motion.button
+                  key={opt}
+                  whileTap={{ scale: 0.97 }}
                   disabled={showResult}
+                  onClick={() => !showResult && setSelectedOption(opt)}
                   className={cn(
-                    "h-auto py-3 px-4 text-sm sm:text-base whitespace-normal break-words leading-snug",
-                    showResult && option === (currentExercise as typeof exercises.fillBlank[0]).answer && "bg-green-500 hover:bg-green-500 text-white",
-                    showResult && selectedOption === option && option !== (currentExercise as typeof exercises.fillBlank[0]).answer && "bg-red-500 hover:bg-red-500 text-white"
+                    "w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all",
+                    !showResult && selectedOption === opt
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : !showResult
+                        ? "border-border bg-card text-foreground hover:border-primary/40"
+                        : opt === currentExercise.answer
+                          ? "border-success bg-success/10 text-success"
+                          : selectedOption === opt
+                            ? "border-destructive bg-destructive/10 text-destructive"
+                            : "border-border bg-card text-muted-foreground"
                   )}
                 >
-                  {option}
-                </Button>
+                  {opt}
+                </motion.button>
               ))}
             </div>
           )}
 
-          {/* Result Feedback */}
-          {showResult && (
-            <div className={cn(
-              "p-4 rounded-lg flex items-center gap-3",
-              isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            )}>
-              {isCorrect ? <Check className="w-6 h-6" /> : <X className="w-6 h-6" />}
-              <div>
-                <p className="font-medium">{isCorrect ? "Correct!" : "Not quite..."}</p>
-                {!isCorrect && selectedType === "translation" && (
-                  <p className="text-sm">
-                    Correct answer: {(currentExercise as typeof exercises.translation[0]).english}
-                  </p>
+          {/* ── Translation ── */}
+          {currentExercise.kind === "translation" && (
+            <Input
+              placeholder="Type your answer..."
+              value={userAnswer}
+              onChange={e => setUserAnswer(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && userAnswer.trim() && !showResult && checkAnswer()}
+              disabled={showResult}
+              className="rounded-xl text-base py-3 bg-card border-border"
+            />
+          )}
+
+          {/* ── Reorder ── */}
+          {currentExercise.kind === "reorder" && (
+            <div className="space-y-3">
+              {/* Picked words (answer area) */}
+              <div className="min-h-[48px] p-3 rounded-xl border-2 border-dashed border-border bg-card/50 flex flex-wrap gap-2">
+                {reorderPicked.length === 0 && (
+                  <span className="text-xs text-muted-foreground">Tap words below to build the sentence</span>
                 )}
-                {!isCorrect && selectedType !== "translation" && (
-                  <p className="text-sm">
-                    Correct answer: {(currentExercise as typeof exercises.fillBlank[0]).answer}
-                  </p>
-                )}
+                {reorderPicked.map((w, i) => (
+                  <motion.button
+                    key={`picked-${i}`}
+                    layoutId={`word-${w}-${i}`}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => {
+                      if (showResult) return
+                      setReorderPicked(p => p.filter((_, idx) => idx !== i))
+                      setReorderPool(p => [...p, w])
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
+                  >
+                    {w}
+                  </motion.button>
+                ))}
+              </div>
+              {/* Pool */}
+              <div className="flex flex-wrap gap-2 justify-center">
+                {reorderPool.map((w, i) => (
+                  <motion.button
+                    key={`pool-${i}`}
+                    layoutId={`pool-${w}-${i}`}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => {
+                      if (showResult) return
+                      setReorderPool(p => p.filter((_, idx) => idx !== i))
+                      setReorderPicked(p => [...p, w])
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-secondary text-foreground text-sm font-medium border border-border hover:border-primary/50 transition-colors"
+                  >
+                    {w}
+                  </motion.button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-center gap-4">
-            {!showResult ? (
-              <Button 
-                onClick={checkAnswer}
-                disabled={selectedType === "translation" ? !userAnswer : !selectedOption}
-                size="lg"
-              >
-                Check Answer
+          {/* ── Result Feedback ── */}
+          {showResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                "p-3 rounded-xl flex items-start gap-3",
+                isCorrect ? "bg-success/10 border border-success/30" : "bg-destructive/10 border border-destructive/30"
+              )}
+            >
+              <div className={cn(
+                "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
+                isCorrect ? "bg-success text-background" : "bg-destructive text-background"
+              )}>
+                {isCorrect ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+              </div>
+              <div className="space-y-1 min-w-0">
+                <p className={cn("text-sm font-bold", isCorrect ? "text-success" : "text-destructive")}>
+                  {isCorrect ? "Correct!" : "Not quite"}
+                </p>
+                {!isCorrect && (
+                  <p className="text-xs text-muted-foreground">
+                    Correct answer: <strong className="text-foreground">{currentExercise.answer}</strong>
+                  </p>
+                )}
+                {currentExercise.explanation && (
+                  <p className="text-xs text-muted-foreground italic">{currentExercise.explanation}</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Actions ── */}
+          <div className="flex gap-2 pt-2">
+            {!showResult && (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => setShowHint(h => !h)} className="text-xs text-muted-foreground">
+                  {showHint ? "Hide hint" : "Hint"}
+                </Button>
+                <Button
+                  onClick={checkAnswer}
+                  disabled={
+                    currentExercise.kind === "translation" ? !userAnswer.trim()
+                    : currentExercise.kind === "reorder" ? reorderPicked.length === 0
+                    : !selectedOption
+                  }
+                  className="flex-1 rounded-xl font-bold"
+                >
+                  Check
+                </Button>
+              </>
+            )}
+            {showResult && !isLast && (
+              <Button onClick={nextExercise} className="flex-1 rounded-xl font-bold">
+                Next <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
-            ) : (
-              <Button onClick={nextExercise} size="lg">
-                {isLastExercise ? "See Results" : "Next Question"}
+            )}
+            {showResult && isLast && (
+              <Button onClick={() => setShowResult(true)} className="flex-1 rounded-xl font-bold">
+                See Results <Trophy className="w-4 h-4 ml-1" />
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }

@@ -715,3 +715,46 @@ export const lessonContentMap: Record<string, LessonContent> = {
 export function getLessonContent(lessonId: string): LessonContent | null {
   return lessonContentMap[lessonId] ?? null
 }
+
+/* ── Flatten all exercises for the practice tab ── */
+export interface PracticeExercise {
+  id: string
+  lessonId: string
+  lessonTitle: string
+  kind: ExerciseKind
+  prompt: string
+  answer: string
+  options?: string[]
+  words?: string[]
+  pairs?: { left: string; right: string }[]
+  explanation?: string
+}
+
+export function getAllPracticeExercises(): PracticeExercise[] {
+  const result: PracticeExercise[] = []
+  for (const content of Object.values(lessonContentMap)) {
+    content.exercises.forEach((ex, i) => {
+      result.push({
+        id: `${content.lessonId}-ex-${i}`,
+        lessonId: content.lessonId,
+        lessonTitle: content.goal.split(",")[0].split(".")[0],
+        kind: ex.kind,
+        prompt: ex.prompt,
+        answer: ex.answer,
+        options: ex.options,
+        words: ex.words,
+        pairs: ex.pairs,
+        explanation: ex.explanation,
+      })
+    })
+  }
+  return result
+}
+
+/** Lesson names for the filter dropdown */
+export function getLessonNames(): { id: string; title: string }[] {
+  return Object.values(lessonContentMap).map(c => ({
+    id: c.lessonId,
+    title: c.goal.split(",")[0].split(".")[0].trim(),
+  }))
+}
