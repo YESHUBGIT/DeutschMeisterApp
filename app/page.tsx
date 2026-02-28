@@ -65,7 +65,7 @@ export default function Home() {
   }, [activeTab])
 
   const handleStartLesson = useCallback((lessonId: string) => {
-    const content = getLessonContent(lessonId)
+    const content = getLessonContent(lessonId, profile.purpose)
     if (content) {
       // Open interactive lesson player
       setActiveLessonId(lessonId)
@@ -113,7 +113,7 @@ export default function Home() {
   }
 
   /* Lesson player gate */
-  const activeLessonContent = activeLessonId ? getLessonContent(activeLessonId) : null
+  const activeLessonContent = activeLessonId ? getLessonContent(activeLessonId, profile.purpose) : null
   if (activeLessonContent) {
     return (
       <AnimatePresence mode="wait">
@@ -183,7 +183,7 @@ export default function Home() {
             )}
             {activeTab === "practice" && (
               <div className="max-w-lg mx-auto px-4">
-                <TrainTab selectedLesson={lessonFilter} onLessonChange={setLessonFilter} />
+                <TrainTab selectedLesson={lessonFilter} onLessonChange={setLessonFilter} purpose={profile.purpose} />
               </div>
             )}
             {activeTab === "review" && (

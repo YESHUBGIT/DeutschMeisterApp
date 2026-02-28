@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getAllPracticeExercises, getLessonNames, type PracticeExercise } from "@/lib/lesson-content"
+import type { Purpose } from "@/lib/use-learner-profile"
 import { playSound } from "@/lib/sound"
 
 /* ═══════════════════════════════════════
@@ -51,9 +52,10 @@ function shuffleArray<T>(arr: T[]): T[] {
 interface TrainTabProps {
   selectedLesson?: string
   onLessonChange?: (lessonId: string) => void
+  purpose?: Purpose | null
 }
 
-export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
+export function TrainTab({ selectedLesson, onLessonChange, purpose }: TrainTabProps) {
   const [mode, setMode] = useState<PracticeMode>("browse")
   const [category, setCategory] = useState<ExerciseCategory>("all")
   const [lessonFilter, setLessonFilter] = useState(selectedLesson ?? "all")
@@ -74,7 +76,7 @@ export function TrainTab({ selectedLesson, onLessonChange }: TrainTabProps) {
     }
   }, [selectedLesson, lessonFilter])
 
-  const allExercises = useMemo(() => getAllPracticeExercises(), [])
+  const allExercises = useMemo(() => getAllPracticeExercises(purpose), [purpose])
   const lessonNames = useMemo(() => getLessonNames(), [])
 
   /* counts by lesson */
